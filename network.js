@@ -4,7 +4,7 @@
 // Carregar ANTES de game.js, input.js etc.
 //
 // TROCAR SERVER_URL pela URL do seu app no Render.com:
-const NET_SERVER_URL = 'https://SEU-APP.onrender.com';
+const NET_SERVER_URL = 'https://guy-battle-server.onrender.com/';
 
 // ── STATE PÚBLICO ─────────────────────────────────────────────
 const NET = (() => {
