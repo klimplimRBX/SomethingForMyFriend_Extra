@@ -19,7 +19,7 @@ const CHAR_TYPES = [
 ];
 
 // ── SELECTION ──────────────────────────────────────────────────
-const sel = {p1:0, p2:6}; // default: Vermelho vs Tiger
+const sel = {p1:0, p2:6}; // default: Você vs Cara Preto
 
 // Inicia chars customizados (async, antes do primeiro frame importa pouco)
 initPlayerCustom().then(() => initCustomChars());

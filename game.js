@@ -414,6 +414,12 @@ const G = {
     c.fillStyle=isTiger?'#FFD700':isRF?'#85C1E9':isJevil?'#C39BD3':isDog?'#C68642':'white'; c.textAlign='center';
     c.fillText(type.name,x+w/2,sqY+sq+16);
 
+    // Contador de posição no carrossel (ex: "14/16") — deixa claro que há mais
+    // personagens além dos 2 cards visíveis, evitando parar antes de chegar neles.
+    c.font=`${Math.min(9,w*0.075)}px Arial,sans-serif`;
+    c.fillStyle='rgba(255,255,255,0.5)';
+    c.fillText(`${typeIdx+1}/${CHAR_TYPES.length}`,x+w/2,sqY+sq+28);
+
     const aSz=26;
     const arL={x:x+3,       y:y+h/2-aSz/2, w:aSz, h:aSz};
     const arR={x:x+w-aSz-3, y:y+h/2-aSz/2, w:aSz, h:aSz};
