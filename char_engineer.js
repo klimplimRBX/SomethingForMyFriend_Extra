@@ -13,7 +13,9 @@ const ENGI_BULLET_CD    = 2.2;
 const ENGI_SLEDGE_DMG   = 150;
 const ENGI_SLEDGE_CD    = 3.0;
 const ENGI_SLEDGE_RANGE = 100;    // alcance real do swing (um pouco além do gatilho de 70px)
-const ENGI_SWING_DUR    = 0.28;
+const ENGI_SWING_DUR    = 0.14;   // duração do swing — mais rápido/seco
+const ENGI_SWING_ARC_SPAN = 110 * Math.PI/180;  // abertura angular do cone do swing
+const ENGI_SWING_ARC_RADIUS = 150;              // alcance visual do cone
 const ENGI_KNOCKBACK    = 110;
 const ENGI_STUN_DUR     = 1.0;
 const ENGI_CONFUSE_DUR  = 5.0;
@@ -23,11 +25,11 @@ const ENGI_XP_REQ = { 1:100, 2:200, 3:400, 4:600 };
 
 // ── SENTRY TIERS ────────────────────────────────────────────────
 const SENTRY_TIERS = [
-  /* 0 - Sentry           */ { name:'Sentry',           hp:100, dmg:10, cd:1.0, projSpd:800,  predictive:false },
-  /* 1 - Upgraded Sentry  */ { name:'Upgraded Sentry',  hp:120, dmg:15, cd:0.9, projSpd:850,  predictive:false },
-  /* 2 - Rifle Sentry     */ { name:'Rifle Sentry',     hp:150, dmg:25, cd:1.5, projSpd:1200, predictive:true  },
-  /* 3 - Minigun Sentry   */ { name:'Minigun Sentry',   hp:175, dmg:3,  cd:0.1, projSpd:1200, predictive:true  },
-  /* 4 - War Machine      */ { name:'War Machine Sentry',hp:200, dmg:5, cd:0.1, projSpd:1200, predictive:true  },
+  /* 0 - Sentry           */ { name:'Sentry',           hp:150, dmg:10, cd:1.0, projSpd:800,  predictive:false },
+  /* 1 - Upgraded Sentry  */ { name:'Upgraded Sentry',  hp:180, dmg:15, cd:0.9, projSpd:850,  predictive:false },
+  /* 2 - Rifle Sentry     */ { name:'Rifle Sentry',     hp:225, dmg:25, cd:1.5, projSpd:1200, predictive:true  },
+  /* 3 - Minigun Sentry   */ { name:'Minigun Sentry',   hp:263, dmg:3,  cd:0.1, projSpd:1200, predictive:true  },
+  /* 4 - War Machine      */ { name:'War Machine Sentry',hp:300, dmg:5, cd:0.1, projSpd:1200, predictive:true  },
 ];
 const SENTRY_SZ = 40;
 
@@ -67,7 +69,8 @@ function spawnSentryExplosion(x, y) {
       maxLife: 0.85, rot: Math.random() * Math.PI * 2, vrot: (Math.random() - 0.5) * 10,
     });
   }
-  SFX.play('death', 0.6);
+  // Sem SFX aqui de propósito: 'death' é o som de morte de personagem —
+  // usá-lo pra uma sentry explodindo confunde (parece que alguém morreu).
 }
 function updateSentryParticles(dt) {
   for (let i = _sentryParticles.length - 1; i >= 0; i--) {
@@ -270,7 +273,7 @@ class EngineerCharacter extends Character {
         knockbackChar(this, other, ENGI_KNOCKBACK);
         other.freezeTimer = Math.max(other.freezeTimer || 0, ENGI_STUN_DUR);
         applyConfusion(other, ENGI_CONFUSE_DUR);
-        this._grantRewards(2, 40);
+        this._grantRewards(3, 40);
         SFX.playPitched('kick', -2, 2, 1.0);
       }
     }
@@ -278,7 +281,7 @@ class EngineerCharacter extends Character {
 
   // Chamado quando um projétil DELE conecta (hook genérico usado pelo loop principal em game.js)
   onProjHit(p, target) {
-    this._grantRewards(1, 20);
+    this._grantRewards(2, 20);
   }
 
   _grantRewards(scrapAmt, xpAmt) {
@@ -348,12 +351,13 @@ class EngineerCharacter extends Character {
   draw(c) {
     if (this.alive) {
       const sz = this.sz;
+      const half = ENGI_SWING_ARC_SPAN / 2;
+      const swingProg = this._swingT > 0 ? clamp(1 - (this._swingT / ENGI_SWING_DUR), 0, 1) : 0;
       // Marreta: só aparece perto do alvo (modo Sledge), com swing na frente do personagem
       if (this._mode === 'sledge') {
         const gH = 46;
         const gW = imgOk(ENGI_SLEDGE_IMG) ? gH * (ENGI_SLEDGE_IMG.naturalWidth / ENGI_SLEDGE_IMG.naturalHeight) : gH;
-        const swingProg = this._swingT > 0 ? 1 - (this._swingT / ENGI_SWING_DUR) : 0;
-        const swingOffset = this._swingT > 0 ? lerp(-0.85, 0.85, swingProg) : 0;
+        const swingOffset = this._swingT > 0 ? lerp(-half, half, swingProg) : 0;
         const edgeDist = sz/2 + 4;
         const gx = this.x + Math.cos(this._aimAngle) * edgeDist;
         const gy = this.y + Math.sin(this._aimAngle) * edgeDist;
@@ -379,6 +383,28 @@ class EngineerCharacter extends Character {
         c.fillRect(this.x - sz/2, this.y - sz/2, sz, sz);
         c.strokeStyle = 'white'; c.lineWidth = 3;
         c.strokeRect(this.x - sz/2, this.y - sz/2, sz, sz);
+      }
+      // Cone do swing: nasce como uma fatia fina na extremidade esquerda do
+      // arco e varre até a extremidade direita, por cima de tudo — o "golpe"
+      // em si, visualmente separado da marreta (que só mostra a arma).
+      if (this._swingT > 0) {
+        const startA = this._aimAngle - half;
+        const endA   = this._aimAngle + half;
+        const curA   = lerp(startA, endA, swingProg);
+        const fade   = clamp(1 - swingProg * 0.5, 0, 1);
+        c.save();
+        c.globalAlpha = 0.55 * fade;
+        const grad = c.createRadialGradient(this.x, this.y, 0, this.x, this.y, ENGI_SWING_ARC_RADIUS);
+        grad.addColorStop(0,   'rgba(255,255,255,0.95)');
+        grad.addColorStop(0.65,'rgba(255,235,170,0.55)');
+        grad.addColorStop(1,   'rgba(255,235,170,0)');
+        c.fillStyle = grad;
+        c.beginPath();
+        c.moveTo(this.x, this.y);
+        c.arc(this.x, this.y, ENGI_SWING_ARC_RADIUS, startA, curA);
+        c.closePath();
+        c.fill();
+        c.restore();
       }
       if (this.freezeTimer > 0) {
         c.save(); c.globalAlpha = 0.45; c.fillStyle = '#A0DFFF';
