@@ -27,11 +27,11 @@ const ENGI_LEVEL_LABEL = 'Lv.'; // prefixo do nível mostrado dentro da barra de
 
 // ── SENTRY TIERS ────────────────────────────────────────────────
 const SENTRY_TIERS = [
-  /* 0 - Sentry           */ { name:'Sentry',           hp:100, dmg:10, cd:1.0, projSpd:800,  predictive:false },
-  /* 1 - Upgraded Sentry  */ { name:'Upgraded Sentry',  hp:150, dmg:15, cd:0.9, projSpd:850,  predictive:false },
-  /* 2 - Rifle Sentry     */ { name:'Rifle Sentry',     hp:200, dmg:25, cd:1.5, projSpd:1200, predictive:true  },
-  /* 3 - Minigun Sentry   */ { name:'Minigun Sentry',   hp:250, dmg:8,  cd:0.4, projSpd:1300, predictive:true  },
-  /* 4 - War Machine      */ { name:'War Machine Sentry',hp:300, dmg:8, cd:0.2, projSpd:1400, predictive:true  },
+  /* 0 - Sentry           */ { name:'Sentry',           hp:100, dmg:4, cd:0.4, projSpd:800,  predictive:false },
+  /* 1 - Upgraded Sentry  */ { name:'Upgraded Sentry',  hp:150, dmg:7, cd:0.4, projSpd:850,  predictive:false },
+  /* 2 - Rifle Sentry     */ { name:'Rifle Sentry',     hp:200, dmg:8, cd:0.3, projSpd:1200, predictive:true  },
+  /* 3 - Minigun Sentry   */ { name:'Minigun Sentry',   hp:250, dmg:7,  cd:0.2, projSpd:1300, predictive:true  },
+  /* 4 - War Machine      */ { name:'War Machine Sentry',hp:300, dmg:5, cd:0.1, projSpd:1400, predictive:true  },
 ];
 const SENTRY_SZ = 50;
 
