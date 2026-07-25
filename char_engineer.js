@@ -5,7 +5,7 @@
 //             AW, AH, SFX, imgOk, getWhite, clamp, lerp, rrect, canvas, DPR
 
 // ── CONSTANTS ───────────────────────────────────────────────────
-const ENGI_HP           = 9000;
+const ENGI_HP           = 900;
 const ENGI_RANGE_THRESH = 70;     // acima disso = Ranged, abaixo = Sledge
 const ENGI_BULLET_DMG   = 30;
 const ENGI_BULLET_SPD   = 1250;
