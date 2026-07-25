@@ -76,16 +76,23 @@ async function initPlayerCustom() {
   // Remove entrada anterior se existir
   const old = CHAR_TYPES.findIndex(t => t.isPlayerCustom);
   if (old >= 0) CHAR_TYPES.splice(old, 1);
-  _baseCharCount = 15;
+  // _baseCharCount = tudo que vem antes (e incluindo) o slot "+ Personalizado".
+  // Calculado dinamicamente pra não ficar desatualizado quando um personagem
+  // novo é adicionado ao CHAR_TYPES (era um número fixo antes — bug).
+  const slotIdx = CHAR_TYPES.findIndex(t => t.isCustomSlot);
+  _baseCharCount = slotIdx >= 0 ? slotIdx + 1 : CHAR_TYPES.length;
   const cfg = loadPlayerCustom();
   if (!cfg) return;
   await hydrateCustom(cfg);
-  // Insere na posição 14 (antes do slot "+ Personalizado")
-  CHAR_TYPES.splice(14, 0, {
+  // Insere logo antes do slot "+ Personalizado"
+  const insertAt = slotIdx >= 0 ? slotIdx : CHAR_TYPES.length;
+  CHAR_TYPES.splice(insertAt, 0, {
     name: cfg.name || 'Você (custom)', color: cfg.color||'#5B2D8E',
     cls: PlayerCustomCharacter, cfg, isPlayerCustom: true
   });
-  _baseCharCount = 16;
+  // Recalcula depois da inserção — mais seguro do que fazer conta manual
+  const newSlotIdx = CHAR_TYPES.findIndex(t => t.isCustomSlot);
+  _baseCharCount = newSlotIdx >= 0 ? newSlotIdx + 1 : CHAR_TYPES.length;
 }
 
 let _customCharTypes = [];
@@ -100,4 +107,4 @@ async function initCustomChars() {
   while (CHAR_TYPES.length > _baseCharCount) CHAR_TYPES.pop();
   for (const ct of _customCharTypes) CHAR_TYPES.push(ct);
 }
-let _baseCharCount = 15; // 15 base + 1 quando player custom existe
+let _baseCharCount = 0; // recalculado em initPlayerCustom() antes de qualquer uso
