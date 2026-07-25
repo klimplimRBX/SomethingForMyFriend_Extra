@@ -269,8 +269,24 @@ G._onlineUpdate = function(dt) {
     // Roda update normal
     if (this._onlineMode === 'pvp') {
       const [c1, c2] = this.chars;
-      c1.update(dt, c2, this.projs);
-      c2.update(dt, c1, this.projs);
+      // ENGINEER PATCH (paridade com o modo local, ver game.js update()): sem
+      // isso a sentry nunca recebia update() no modo online — não mirava,
+      // não atirava, não reveentava e não virava pro inimigo (ficava "morta"
+      // visualmente mesmo com hp > 0).
+      const _engi = this.chars.find(ch => ch instanceof EngineerCharacter);
+      const _engiSentryUp = !!(_engi && _engi.sentry && _engi.sentry.alive);
+      let _target1 = c2, _target2 = c1;
+      if (_engiSentryUp) {
+        if (c1 === _engi) _target2 = _engi.sentry;
+        else if (c2 === _engi) _target1 = _engi.sentry;
+      }
+      c1.update(dt, _target1, this.projs);
+      c2.update(dt, _target2, this.projs);
+      if (_engiSentryUp) {
+        const _enemyOfEngi = _engi === c1 ? c2 : c1;
+        _engi.sentry.update(dt, _enemyOfEngi, this.projs);
+      }
+      updateSentryParticles(dt);
     } else if (this._onlineMode === 'duos_boss') {
       _updateDuosBoss(dt, this.chars, this.projs);
     }
@@ -334,8 +350,24 @@ function _updateProjectiles(dt, chars, projs) {
   for (const p of projs) {
     p.update(dt);
     if (!p.alive) continue;
+    // ENGINEER PATCH (paridade com o modo local, ver game.js): tiros da sentry
+    // pertencem ao Engineer que a construiu (senão ela nunca escapava do
+    // próprio owner-check e podia acertar o mestre dela), e enquanto a sentry
+    // estiver viva, tiros inimigos só acertam ela — o Engineer fica protegido.
+    const _realOwner = (typeof Sentry !== 'undefined' && p.owner instanceof Sentry) ? p.owner.master : p.owner;
+    let _blocked = false;
+    if (_realOwner instanceof EngineerCharacter === false) {
+      const _engiTarget = chars.find(ch => ch instanceof EngineerCharacter && ch.alive && ch !== _realOwner && ch.sentry && ch.sentry.alive);
+      if (_engiTarget && !(p.owner instanceof Sentry) && p.hits(_engiTarget.sentry)) {
+        _engiTarget.sentry.takeDamage(p.dmg !== undefined ? p.dmg : PROJ_DMG);
+        if (_engiTarget.sentry.alive && p.owner && p.owner.onProjHit) p.owner.onProjHit(p, _engiTarget.sentry);
+        p.alive = false;
+        _blocked = true;
+      }
+    }
+    if (_blocked) continue;
     for (const target of chars) {
-      if (!target.alive || p.owner === target) continue;
+      if (!target.alive || _realOwner === target) continue;
       if (p.hits(target)) {
         target.takeDamage(p.dmg || PROJ_DMG);
         p.alive = false;
