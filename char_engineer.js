@@ -21,7 +21,7 @@ const ENGI_STUN_DUR     = 3.0;
 const ENGI_CONFUSE_DUR  = 7.0;
 const ENGI_CONFUSE_FALLBACK_DEG = 7.5;
 const ENGI_SCRAP_NEEDED = 5;
-const ENGI_XP_REQ = { 1:100, 2:200, 3:400, 4:600 };
+const ENGI_XP_REQ = { 1:100, 2:125, 3:180, 4:300 };
 
 // ── SENTRY TIERS ────────────────────────────────────────────────
 const SENTRY_TIERS = [
