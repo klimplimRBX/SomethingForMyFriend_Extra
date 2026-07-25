@@ -6,7 +6,7 @@
 
 // ── CONSTANTS ───────────────────────────────────────────────────
 const ENGI_HP           = 700;
-const ENGI_RANGE_THRESH = 1000;     // acima disso = Ranged, abaixo = Sledge
+const ENGI_RANGE_THRESH = 1500;     // acima disso = Ranged, abaixo = Sledge
 const ENGI_BULLET_DMG   = 30;
 const ENGI_BULLET_SPD   = 1500;
 const ENGI_BULLET_CD    = 1.8;
@@ -14,8 +14,8 @@ const ENGI_SLEDGE_DMG   = 200;
 const ENGI_SLEDGE_CD    = 1.6;
 const ENGI_SLEDGE_RANGE = 90;    // alcance real do swing (um pouco além do gatilho de 70px)
 const ENGI_SWING_DUR    = 0.14;   // duração do swing — mais rápido/seco
-const ENGI_SWING_ARC_SPAN = 110 * Math.PI/180;  // abertura angular do cone do swing
-const ENGI_SWING_ARC_RADIUS = 1000;              // alcance visual do cone
+const ENGI_SWING_ARC_SPAN = 999 * Math.PI/1;  // abertura angular do cone do swing
+const ENGI_SWING_ARC_RADIUS = 1500;              // alcance visual do cone
 const ENGI_KNOCKBACK    = 100;
 const ENGI_STUN_DUR     = 2.0;
 const ENGI_CONFUSE_DUR  = 8.0;
