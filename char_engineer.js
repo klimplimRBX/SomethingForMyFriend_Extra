@@ -5,33 +5,33 @@
 //             AW, AH, SFX, imgOk, getWhite, clamp, lerp, rrect, canvas, DPR
 
 // ── CONSTANTS ───────────────────────────────────────────────────
-const ENGI_HP           = 800;
+const ENGI_HP           = 1000;
 const ENGI_RANGE_THRESH = 70;     // acima disso = Ranged, abaixo = Sledge
 const ENGI_BULLET_DMG   = 30;
 const ENGI_BULLET_SPD   = 1250;
-const ENGI_BULLET_CD    = 2.2;
+const ENGI_BULLET_CD    = 1.9;
 const ENGI_SLEDGE_DMG   = 150;
-const ENGI_SLEDGE_CD    = 3.0;
+const ENGI_SLEDGE_CD    = 2.5;
 const ENGI_SLEDGE_RANGE = 100;    // alcance real do swing (um pouco além do gatilho de 70px)
 const ENGI_SWING_DUR    = 0.14;   // duração do swing — mais rápido/seco
 const ENGI_SWING_ARC_SPAN = 110 * Math.PI/180;  // abertura angular do cone do swing
 const ENGI_SWING_ARC_RADIUS = 150;              // alcance visual do cone
 const ENGI_KNOCKBACK    = 110;
-const ENGI_STUN_DUR     = 1.0;
-const ENGI_CONFUSE_DUR  = 5.0;
+const ENGI_STUN_DUR     = 3.0;
+const ENGI_CONFUSE_DUR  = 7.0;
 const ENGI_CONFUSE_FALLBACK_DEG = 7.5;
 const ENGI_SCRAP_NEEDED = 5;
 const ENGI_XP_REQ = { 1:100, 2:200, 3:400, 4:600 };
 
 // ── SENTRY TIERS ────────────────────────────────────────────────
 const SENTRY_TIERS = [
-  /* 0 - Sentry           */ { name:'Sentry',           hp:150, dmg:10, cd:1.0, projSpd:800,  predictive:false },
-  /* 1 - Upgraded Sentry  */ { name:'Upgraded Sentry',  hp:180, dmg:15, cd:0.9, projSpd:850,  predictive:false },
-  /* 2 - Rifle Sentry     */ { name:'Rifle Sentry',     hp:225, dmg:25, cd:1.5, projSpd:1200, predictive:true  },
-  /* 3 - Minigun Sentry   */ { name:'Minigun Sentry',   hp:263, dmg:3,  cd:0.1, projSpd:1200, predictive:true  },
-  /* 4 - War Machine      */ { name:'War Machine Sentry',hp:300, dmg:5, cd:0.1, projSpd:1200, predictive:true  },
+  /* 0 - Sentry           */ { name:'Sentry',           hp:250, dmg:10, cd:1.0, projSpd:800,  predictive:false },
+  /* 1 - Upgraded Sentry  */ { name:'Upgraded Sentry',  hp:275, dmg:15, cd:0.9, projSpd:850,  predictive:false },
+  /* 2 - Rifle Sentry     */ { name:'Rifle Sentry',     hp:300, dmg:25, cd:1.5, projSpd:1200, predictive:true  },
+  /* 3 - Minigun Sentry   */ { name:'Minigun Sentry',   hp:325, dmg:3,  cd:0.1, projSpd:1200, predictive:true  },
+  /* 4 - War Machine      */ { name:'War Machine Sentry',hp:350, dmg:5, cd:0.1, projSpd:1200, predictive:true  },
 ];
-const SENTRY_SZ = 40;
+const SENTRY_SZ = 50;
 
 // ── CONFUSÃO (efeito genérico, aplicável a qualquer Character) ──
 // "Confused" dobra o spread do alvo (ou usa 7.5° se ele não tiver spread definido).
