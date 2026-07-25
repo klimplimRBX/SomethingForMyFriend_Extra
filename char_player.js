@@ -113,8 +113,8 @@ class PlayerCharacter extends Character {
     this._tickLabel(dt);
   }
 
-  takeDamage(v) {
-    super.takeDamage(v);
+  takeDamage(v, noSlow) {
+    super.takeDamage(v, noSlow);
     this._idleTimer  = 0;
     this._regenAccum = 0;
   }

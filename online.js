@@ -274,17 +274,21 @@ G._onlineUpdate = function(dt) {
       // não atirava, não reveentava e não virava pro inimigo (ficava "morta"
       // visualmente mesmo com hp > 0).
       const _engi = this.chars.find(ch => ch instanceof EngineerCharacter);
-      const _engiSentryUp = !!(_engi && _engi.sentry && _engi.sentry.alive);
+      const _engiAliveSentries = _engi ? _engi.sentries.filter(s => s.alive) : [];
       let _target1 = c2, _target2 = c1;
-      if (_engiSentryUp) {
-        if (c1 === _engi) _target2 = _engi.sentry;
-        else if (c2 === _engi) _target1 = _engi.sentry;
+      if (_engiAliveSentries.length) {
+        if (c1 === _engi) _target2 = _nearestSentry(_engiAliveSentries, c2.x, c2.y);
+        else if (c2 === _engi) _target1 = _nearestSentry(_engiAliveSentries, c1.x, c1.y);
       }
       c1.update(dt, _target1, this.projs);
       c2.update(dt, _target2, this.projs);
-      if (_engiSentryUp) {
+      // Re-checa `s.alive` aqui (não usa o array cacheado acima) — o update() de
+      // c1/c2 já pode ter matado alguma sentry nesse mesmo frame (ex: atropelada),
+      // e chamar update() numa sentry morta/nula é o que travava o jogo.
+      if (_engi) {
         const _enemyOfEngi = _engi === c1 ? c2 : c1;
-        _engi.sentry.update(dt, _enemyOfEngi, this.projs);
+        for (const s of _engi.sentries) { if (s.alive) s.update(dt, _enemyOfEngi, this.projs); }
+        _engi.sentries = _engi.sentries.filter(s => s.alive);
       }
       updateSentryParticles(dt);
     } else if (this._onlineMode === 'duos_boss') {
@@ -357,19 +361,24 @@ function _updateProjectiles(dt, chars, projs) {
     const _realOwner = (typeof Sentry !== 'undefined' && p.owner instanceof Sentry) ? p.owner.master : p.owner;
     let _blocked = false;
     if (_realOwner instanceof EngineerCharacter === false) {
-      const _engiTarget = chars.find(ch => ch instanceof EngineerCharacter && ch.alive && ch !== _realOwner && ch.sentry && ch.sentry.alive);
-      if (_engiTarget && !(p.owner instanceof Sentry) && p.hits(_engiTarget.sentry)) {
-        _engiTarget.sentry.takeDamage(p.dmg !== undefined ? p.dmg : PROJ_DMG);
-        if (_engiTarget.sentry.alive && p.owner && p.owner.onProjHit) p.owner.onProjHit(p, _engiTarget.sentry);
-        p.alive = false;
-        _blocked = true;
+      const _engiTarget = chars.find(ch => ch instanceof EngineerCharacter && ch.alive && ch !== _realOwner && ch.sentries.some(s => s.alive));
+      if (_engiTarget && !(p.owner instanceof Sentry)) {
+        const _sentryHit = _engiTarget.sentries.find(s => s.alive && p.hits(s));
+        if (_sentryHit) {
+          _sentryHit.takeDamage(p.dmg !== undefined ? p.dmg : PROJ_DMG);
+          if (_sentryHit.alive && p.owner && p.owner.onProjHit) p.owner.onProjHit(p, _sentryHit);
+          p.alive = false;
+          _blocked = true;
+        }
       }
     }
     if (_blocked) continue;
     for (const target of chars) {
       if (!target.alive || _realOwner === target) continue;
       if (p.hits(target)) {
-        target.takeDamage(p.dmg || PROJ_DMG);
+        // ENGINEER PATCH: tiros das torretas do Engineer não aplicam o slow padrão.
+        const noSlow = (typeof Sentry !== 'undefined') && (p.owner instanceof Sentry);
+        target.takeDamage(p.dmg || PROJ_DMG, noSlow);
         p.alive = false;
         break;
       }

@@ -176,8 +176,8 @@ class TigerCharacter extends Character {
 
   _showMsg(text) { this._message={text,timer:2.0}; }
 
-  takeDamage(v) {
-    super.takeDamage(v);
+  takeDamage(v, noSlow) {
+    super.takeDamage(v, noSlow);
     if (!this.alive) {
       // Limpa toda a animação de cartas e voicelines ao morrer
       this._cards=[];

@@ -86,10 +86,10 @@ class Character {
     }
   }
 
-  takeDamage(v) {
+  takeDamage(v, noSlow) {
     if (!this.alive) return;
     this.hp=Math.max(0,this.hp-v);
-    this.hitFlash=HIT_FLASH; this.slowTimer=SLOW_DUR;
+    this.hitFlash=HIT_FLASH; if (!noSlow) this.slowTimer=SLOW_DUR;
     this.dmgStack+=v; this.dmgWin=STACK_WIN;
     if (this.dmgLabel) { this.dmgLabel.val=this.dmgStack; }
     else { this.dmgLabel={val:this.dmgStack,x:this.x,y:this.y+this.sz/2+22,fade:1.8}; }

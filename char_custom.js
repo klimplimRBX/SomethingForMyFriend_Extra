@@ -237,8 +237,8 @@ class CustomCharacter extends Character {
     this._tickLabel(dt);
   }
 
-  takeDamage(v) {
-    super.takeDamage(v);
+  takeDamage(v, noSlow) {
+    super.takeDamage(v, noSlow);
     const cfg = this._activeCfg;
     if (cfg._sfxDamageBuf && this._damageSfxCd <= 0) {
       playSfxBuf(cfg._sfxDamageBuf);

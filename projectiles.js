@@ -8,6 +8,7 @@ class Proj {
     this.owner=owner; this.alive=true; this.trail=[];
     this.dmg=undefined; this.healAmt=0;
     this._projSz=PROJ_SZ; this._hitboxSz=PROJ_SZ;
+    this._rotateToVel=false; // se true, a imagem (custom) gira na direção do movimento
   }
   update(dt) {
     this.trail.push({x:this.x, y:this.y});
@@ -22,16 +23,29 @@ class Proj {
   }
   draw(c) {
     if (!this.alive) return;
+    const useImg = this._customImg && imgOk(this._customImg);
+    const rotAngle = this._rotateToVel ? Math.atan2(this.vy, this.vx) : 0;
     for (let i=0;i<this.trail.length;i++) {
       const t=i/this.trail.length, sz=this._projSz*t*0.75;
       c.save(); c.globalAlpha=t*0.5;
-      c.fillStyle=PROJ_COLOR;
-      c.fillRect(this.trail[i].x-sz/2,this.trail[i].y-sz/2,sz,sz);
+      if (useImg) {
+        // Rastro com a própria imagem (não o quadrado amarelo padrão)
+        c.translate(this.trail[i].x, this.trail[i].y);
+        if (this._rotateToVel) c.rotate(rotAngle);
+        c.drawImage(this._customImg, -sz/2, -sz/2, sz, sz);
+      } else {
+        c.fillStyle=PROJ_COLOR;
+        c.fillRect(this.trail[i].x-sz/2,this.trail[i].y-sz/2,sz,sz);
+      }
       c.restore();
     }
     const s=this._projSz;
-    if (this._customImg && imgOk(this._customImg)) {
-      c.drawImage(this._customImg, this.x-s/2, this.y-s/2, s, s);
+    if (useImg) {
+      c.save();
+      c.translate(this.x, this.y);
+      if (this._rotateToVel) c.rotate(rotAngle);
+      c.drawImage(this._customImg, -s/2, -s/2, s, s);
+      c.restore();
     } else {
       c.fillStyle=PROJ_COLOR; c.fillRect(this.x-s/2,this.y-s/2,s,s);
       c.strokeStyle='rgba(255,255,255,0.6)'; c.lineWidth=2;

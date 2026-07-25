@@ -6,7 +6,7 @@
 
 // ── CONSTANTS ───────────────────────────────────────────────────
 const ENGI_HP           = 700;
-const ENGI_RANGE_THRESH = 1500;     // acima disso = Ranged, abaixo = Sledge
+const ENGI_RANGE_THRESH = 80;     // acima disso = Ranged, abaixo = Sledge
 const ENGI_BULLET_DMG   = 30;
 const ENGI_BULLET_SPD   = 1500;
 const ENGI_BULLET_CD    = 1.8;
@@ -14,8 +14,8 @@ const ENGI_SLEDGE_DMG   = 200;
 const ENGI_SLEDGE_CD    = 1.6;
 const ENGI_SLEDGE_RANGE = 90;    // alcance real do swing (um pouco além do gatilho de 70px)
 const ENGI_SWING_DUR    = 0.14;   // duração do swing — mais rápido/seco
-const ENGI_SWING_ARC_SPAN = 999 * Math.PI/1;  // abertura angular do cone do swing
-const ENGI_SWING_ARC_RADIUS = 1500;              // alcance visual do cone
+const ENGI_SWING_ARC_SPAN = 110 * Math.PI/180;  // abertura angular do cone do swing
+const ENGI_SWING_ARC_RADIUS = 210;              // alcance visual do cone (golpe maior/mais dramático)
 const ENGI_KNOCKBACK    = 100;
 const ENGI_STUN_DUR     = 2.0;
 const ENGI_CONFUSE_DUR  = 8.0;
@@ -107,8 +107,9 @@ class SentryProj extends Proj {
   constructor(x, y, vx, vy, owner) {
     super(x, y, vx, vy, owner);
     this.dmg = owner.dmg;
-    this._projSz = 10; this._hitboxSz = 10;
+    this._projSz = 22; this._hitboxSz = 10; // maior visualmente, hitbox igual
     this._customImg = ENGI_BULLET_IMG;
+    this._rotateToVel = true;
   }
 }
 
@@ -222,7 +223,6 @@ class Sentry {
       this.alive = false;
       this._stopFireLoop();
       spawnSentryExplosion(this.x, this.y);
-      if (this.master && this.master.sentry === this) this.master.sentry = null;
     }
   }
 
@@ -230,7 +230,6 @@ class Sentry {
   dismiss() {
     this.alive = false;
     this._stopFireLoop();
-    if (this.master && this.master.sentry === this) this.master.sentry = null;
   }
 
   draw(c) {
@@ -276,7 +275,7 @@ class EngineerCharacter extends Character {
     this.level = 0;
     this.xp = 0;
     this.scrap = 0;
-    this.sentry = null;
+    this.sentries = [];   // 1 torreta por padrão, ou infinitas com o modo especial ativado
     this.sentryTier = 0;
     this._immuneToDebuffs = false;
     this._lastBuildVoice = null; // alterna SentryBuild1/SentryBuild2 a cada sentry construída
@@ -346,7 +345,7 @@ class EngineerCharacter extends Character {
       if (this._bulletCD <= 0) {
         this._bulletCD = this.bulletCooldown;
         const p = new Proj(this.x, this.y, Math.cos(this._aimAngle) * ENGI_BULLET_SPD, Math.sin(this._aimAngle) * ENGI_BULLET_SPD, this);
-        p.dmg = this.bulletDmg; p._customImg = ENGI_BULLET_IMG; p._projSz = 16; p._hitboxSz = 14;
+        p.dmg = this.bulletDmg; p._customImg = ENGI_BULLET_IMG; p._projSz = 28; p._hitboxSz = 14; p._rotateToVel = true;
         projs.push(p);
       }
     } else {
@@ -413,13 +412,19 @@ class EngineerCharacter extends Character {
   }
 
   _spawnSentry() {
-    if (this.sentry && this.sentry.alive) this.sentry.dismiss();
+    // Modo normal: só 1 torreta por vez — a nova substitui a anterior.
+    // Modo "torretas infinitas" (toggle da tela de seleção): mantém todas.
+    const infinite = typeof G !== 'undefined' && G._engiInfiniteTurrets;
+    if (!infinite) {
+      for (const s of this.sentries) if (s.alive) s.dismiss();
+      this.sentries = [];
+    }
     const a = Math.random() * Math.PI * 2;
     const d = 70 + Math.random() * 40;
     const h = SENTRY_SZ / 2;
     const sx = clamp(this.x + Math.cos(a) * d, h, AW - h);
     const sy = clamp(this.y + Math.sin(a) * d, h, AH - h);
-    this.sentry = new Sentry(sx, sy, this.sentryTier, this);
+    this.sentries.push(new Sentry(sx, sy, this.sentryTier, this));
     // SFX.play('teleport', 0.7); // som removido — sentry agora nasce em silêncio
     this._playBuildVoice();
   }
@@ -437,12 +442,13 @@ class EngineerCharacter extends Character {
     SFX.play(key, 1.0);
   }
 
-  takeDamage(v) {
-    super.takeDamage(v);
-    if (!this.alive && this.sentry && this.sentry.alive) {
-      spawnSentryExplosion(this.sentry.x, this.sentry.y);
-      this.sentry.alive = false;
-      this.sentry = null;
+  takeDamage(v, noSlow) {
+    super.takeDamage(v, noSlow);
+    if (!this.alive) {
+      for (const s of this.sentries) {
+        if (s.alive) { spawnSentryExplosion(s.x, s.y); s.alive = false; s._stopFireLoop(); }
+      }
+      this.sentries = [];
     }
   }
 
@@ -486,22 +492,35 @@ class EngineerCharacter extends Character {
       // arco e varre até a extremidade direita, por cima de tudo — o "golpe"
       // em si, visualmente separado da marreta (que só mostra a arma).
       if (this._swingT > 0) {
-        const startA = this._aimAngle - half;
-        const endA   = this._aimAngle + half;
-        const curA   = lerp(startA, endA, swingProg);
-        const fade   = clamp(1 - swingProg * 0.5, 0, 1);
+        const startA  = this._aimAngle - half;
+        const endA    = this._aimAngle + half;
+        const curA    = lerp(startA, endA, swingProg);
+        const fade    = clamp(1 - swingProg * 0.55, 0, 1);
+        const outerR  = ENGI_SWING_ARC_RADIUS;
+        const innerR  = outerR * 0.2;
         c.save();
-        c.globalAlpha = 0.55 * fade;
-        const grad = c.createRadialGradient(this.x, this.y, 0, this.x, this.y, ENGI_SWING_ARC_RADIUS);
-        grad.addColorStop(0,   'rgba(255,255,255,0.95)');
-        grad.addColorStop(0.65,'rgba(255,235,170,0.55)');
-        grad.addColorStop(1,   'rgba(255,235,170,0)');
-        c.fillStyle = grad;
+        // Lâmina em formato de crescente (arco externo + arco interno), em vez
+        // de uma fatia de pizza cheia — visual de "golpe cortante".
+        c.globalAlpha = 0.85 * fade;
         c.beginPath();
-        c.moveTo(this.x, this.y);
-        c.arc(this.x, this.y, ENGI_SWING_ARC_RADIUS, startA, curA);
+        c.arc(this.x, this.y, outerR, startA, curA);
+        c.arc(this.x, this.y, innerR, curA, startA, true);
         c.closePath();
+        const grad = c.createRadialGradient(this.x, this.y, innerR * 0.4, this.x, this.y, outerR);
+        grad.addColorStop(0,    'rgba(255,255,255,0)');
+        grad.addColorStop(0.55, 'rgba(255,255,255,0.30)');
+        grad.addColorStop(0.9,  'rgba(255,255,255,0.85)');
+        grad.addColorStop(1,    'rgba(255,255,255,0)');
+        c.fillStyle = grad;
         c.fill();
+        // Borda nítida e brilhante na ponta do corte
+        c.lineWidth = 3;
+        c.strokeStyle = `rgba(255,255,255,${0.9 * fade})`;
+        c.shadowColor = 'rgba(255,255,255,0.9)';
+        c.shadowBlur = 10;
+        c.beginPath();
+        c.arc(this.x, this.y, outerR, startA, curA);
+        c.stroke();
         c.restore();
       }
       if (this.freezeTimer > 0) {

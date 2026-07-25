@@ -62,13 +62,13 @@ class NeymarCharacter extends Character {
     this._hurtTimer  = 0;
   }
 
-  takeDamage(v) {
+  takeDamage(v, noSlow) {
     if (!this.alive) return;
     const wasHurt = this._hurtTimer > 0;
     this.hp = Math.max(0, this.hp-v);
     this.hitFlash  = NEYMAR_HIT_FLASH;
     this._hurtTimer = NEYMAR_HIT_FLASH;
-    this.slowTimer = SLOW_DUR;
+    if (!noSlow) this.slowTimer = SLOW_DUR;
     this.dmgStack += v; this.dmgWin = STACK_WIN;
     if (this.dmgLabel) { this.dmgLabel.val = this.dmgStack; }
     else { this.dmgLabel = {val:this.dmgStack, x:this.x, y:this.y+this.sz/2+22, fade:1.8}; }

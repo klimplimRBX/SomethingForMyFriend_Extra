@@ -1,8 +1,20 @@
 // ── GAME ───────────────────────────────────────────────────────
+// ENGINEER PATCH: com torretas infinitas pode haver várias sentries vivas ao
+// mesmo tempo — escolhe a mais próxima do personagem pra ser o alvo forçado.
+function _nearestSentry(list, x, y) {
+  let best = null, bestD = Infinity;
+  for (const s of list) {
+    const d = Math.hypot(s.x - x, s.y - y);
+    if (d < bestD) { bestD = d; best = s; }
+  }
+  return best;
+}
+
 const G = {
   state:'menu', chars:[], projs:[], deathTimer:0, winnerText:'', btns:{},
   _finaleActive:false, _finaleGuardT:0,
   _onlineMode: null,   // ← ONLINE PATCH: 'pvp' | 'duos_boss' | null
+  _engiInfiniteTurrets: false, // ENGINEER PATCH: toggle da seleção — desliga ao recarregar a página
   // Dog cutscene & phase 2
   _cutscene:null,         // cutscene state object
   _dogArenaExpanding:false, _dogArenaTimer:0,
@@ -55,13 +67,13 @@ const G = {
 
     const [c1,c2]=this.chars;
 
-    // ── ENGINEER PATCH: sentry no campo força o inimigo dela a mirar nela ──
+    // ── ENGINEER PATCH: sentry(s) no campo força(m) o inimigo a mirar na mais próxima ──
     const _engi = this.chars.find(ch => ch instanceof EngineerCharacter);
-    const _engiSentryUp = !!(_engi && _engi.sentry && _engi.sentry.alive);
+    const _engiAliveSentries = _engi ? _engi.sentries.filter(s => s.alive) : [];
     let _target1 = c2, _target2 = c1;
-    if (_engiSentryUp) {
-      if (c1 === _engi) _target2 = _engi.sentry;
-      else if (c2 === _engi) _target1 = _engi.sentry;
+    if (_engiAliveSentries.length) {
+      if (c1 === _engi) _target2 = _nearestSentry(_engiAliveSentries, c2.x, c2.y);
+      else if (c2 === _engi) _target1 = _nearestSentry(_engiAliveSentries, c1.x, c1.y);
     }
     const _pc1 = this.projs.length;
     c1.update(dt,_target1,this.projs);
@@ -86,10 +98,15 @@ const G = {
     _applyConfJitter(_pc1,_pc2,c1);
     _applyConfJitter(_pc2,_pc3,c2);
     for (const _c of [c1,c2]) _c.confusedTimer = Math.max(0, (_c.confusedTimer||0) - dt);
-    // Atualiza a sentry (entidade separada, fora de this.chars) e as partículas de explosão
-    if (_engiSentryUp) {
+    // Atualiza as sentries (entidades separadas, fora de this.chars) e as partículas de explosão.
+    // Importante: re-checa `s.alive` aqui (não usa o array cacheado acima), porque o
+    // update() de c1/c2 já pode ter matado alguma sentry nesse mesmo frame (ex: o
+    // "2 caras numa moto" atropelando ela) — chamar update() numa sentry morta
+    // (ou usar uma referência null) é o que travava/crashava o jogo.
+    if (_engi) {
       const _enemyOfEngi = _engi===c1 ? c2 : c1;
-      _engi.sentry.update(dt, _enemyOfEngi, this.projs);
+      for (const s of _engi.sentries) { if (s.alive) s.update(dt, _enemyOfEngi, this.projs); }
+      _engi.sentries = _engi.sentries.filter(s => s.alive);
     }
     updateSentryParticles(dt);
     // ── fim patch Engineer ──────────────────────────────────────
@@ -131,9 +148,9 @@ const G = {
       const target = _realOwner===c1 ? c2 : c1;
       // Enquanto a sentry do Engineer estiver viva, tiros do inimigo dela só podem
       // atingir a sentry — o Engineer fica protegido ("forçado a atirar nela").
-      if (target instanceof EngineerCharacter && target.sentry && target.sentry.alive && !(p.owner instanceof Sentry)) {
-        if (p.hits(target.sentry)) {
-          const _sentryHit = target.sentry;
+      if (target instanceof EngineerCharacter && target.sentries.length && !(p.owner instanceof Sentry)) {
+        const _sentryHit = target.sentries.find(s => s.alive && p.hits(s));
+        if (_sentryHit) {
           _sentryHit.takeDamage(p.dmg!==undefined?p.dmg:PROJ_DMG);
           // ENGINEER PATCH: mesmo gancho genérico de stun usado contra personagens
           // (ver char_custom.js onProjHit) também vale pra sentry — é o que faz
@@ -142,7 +159,7 @@ const G = {
           p.alive = false;
           continue;
         }
-        // Não acertou a sentry — segue pro cálculo normal de colisão contra o Engineer.
+        // Não acertou nenhuma sentry — segue pro cálculo normal de colisão contra o Engineer.
       }
       // ── fim patch Engineer ──────────────────────────────────────
       if (target.alive && p.hits(target)) {
@@ -172,7 +189,9 @@ const G = {
           p.alive = false;
         } else {
           const dmg=p.dmg!==undefined?p.dmg:PROJ_DMG;
-          target.takeDamage(dmg);
+          // ENGINEER PATCH: tiros das torretas do Engineer não aplicam o slow padrão.
+          const noSlow = (typeof Sentry !== 'undefined') && (p.owner instanceof Sentry);
+          target.takeDamage(dmg, noSlow);
           if (p.healAmt && p.owner && p.owner.alive) p.owner.heal(p.healAmt);
           if (p.owner && p.owner.onProjHit) p.owner.onProjHit(p, target);
           p.alive = false;
@@ -250,9 +269,11 @@ const G = {
     for (const p of this.projs) p.draw(ctx);
     for (const c of this.chars) c.draw(ctx);
 
-    // ── ENGINEER PATCH: desenha a sentry e partículas de explosão ──
-    const _drawEngi = this.chars.find(ch => ch instanceof EngineerCharacter);
-    if (_drawEngi && _drawEngi.sentry && _drawEngi.sentry.alive) _drawEngi.sentry.draw(ctx);
+    // ── ENGINEER PATCH: desenha todas as sentries vivas e partículas de explosão ──
+    for (const _drawEngi of this.chars) {
+      if (!(_drawEngi instanceof EngineerCharacter)) continue;
+      for (const s of _drawEngi.sentries) if (s.alive) s.draw(ctx);
+    }
     drawSentryParticles(ctx);
     // ── fim patch Engineer ──────────────────────────────────────
 
@@ -369,6 +390,8 @@ const G = {
     const isRF     = type.cls===ReceitaFederalCharacter;
     const isJevil  = type.cls===FinaleCharacter;
     const isDog    = type.cls===DogCharacter;
+    const isEngi   = type.cls===EngineerCharacter;
+    this.btns[isLeft?'p1EngiInf':'p2EngiInf']=null; // reseta — só existe quando o card é o Engineer
     rrect(c,x,y,w,h,12);
     // Card bg tint
     c.fillStyle=isTiger?'rgba(80,50,0,0.45)':isRF?'rgba(10,40,80,0.55)':isJevil?'rgba(20,0,40,0.72)':isDog?'rgba(30,15,0,0.55)':'rgba(0,0,0,0.28)'; c.fill();
@@ -478,6 +501,19 @@ const G = {
       c.fillText('✏️',eb.x+eb.w/2,eb.y+eb.h/2+4);
       this.btns[isLeft?'p1Edit':'p2Edit']=eb;
       this.btns[isLeft?'p1Del':'p2Del']=null;
+    } else if (isEngi) {
+      // Botão de torretas infinitas: vermelho (desligado, padrão) / roxo (ligado).
+      // É um toggle global — reseta ao recarregar a página (não é salvo em disco).
+      const active = !!G._engiInfiniteTurrets;
+      const tb={x:x+w-22,y:y+4,w:18,h:18};
+      rrect(c,tb.x,tb.y,tb.w,tb.h,5);
+      c.fillStyle = active ? '#8E44AD' : '#C0392B'; c.fill();
+      c.strokeStyle='rgba(255,255,255,0.8)'; c.lineWidth=1.5; rrect(c,tb.x,tb.y,tb.w,tb.h,5); c.stroke();
+      c.font='bold 11px Arial Black,sans-serif'; c.fillStyle='white'; c.textAlign='center';
+      c.fillText('∞',tb.x+tb.w/2,tb.y+tb.h/2+4);
+      this.btns[isLeft?'p1EngiInf':'p2EngiInf']=tb;
+      this.btns[isLeft?'p1Del':'p2Del']=null;
+      this.btns[isLeft?'p1Edit':'p2Edit']=null;
     } else {
       this.btns[isLeft?'p1Del':'p2Del']=null;
       this.btns[isLeft?'p1Edit':'p2Edit']=null;
@@ -841,6 +877,10 @@ const G = {
       if (hit(this.btns.p2Del)) { _delCustom(sel.p2); return; }
       if (hit(this.btns.p1Edit)) { _editPlayer(sel.p1); return; }
       if (hit(this.btns.p2Edit)) { _editPlayer(sel.p2); return; }
+      if (hit(this.btns.p1EngiInf) || hit(this.btns.p2EngiInf)) {
+        this._engiInfiniteTurrets = !this._engiInfiniteTurrets;
+        return;
+      }
     }
   },
 
