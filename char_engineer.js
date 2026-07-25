@@ -5,7 +5,7 @@
 //             AW, AH, SFX, imgOk, getWhite, clamp, lerp, rrect, canvas, DPR
 
 // ── CONSTANTS ───────────────────────────────────────────────────
-const ENGI_HP           = 1000;
+const ENGI_HP           = 9000;
 const ENGI_RANGE_THRESH = 70;     // acima disso = Ranged, abaixo = Sledge
 const ENGI_BULLET_DMG   = 30;
 const ENGI_BULLET_SPD   = 1250;
@@ -21,14 +21,14 @@ const ENGI_STUN_DUR     = 3.0;
 const ENGI_CONFUSE_DUR  = 7.0;
 const ENGI_CONFUSE_FALLBACK_DEG = 7.5;
 const ENGI_SCRAP_NEEDED = 5;
-const ENGI_XP_REQ = { 1:100, 2:200, 3:400, 4:600 };
+const ENGI_XP_REQ = { 1:100, 1:400, 2:000, 3:300 };
 
 // ── SENTRY TIERS ────────────────────────────────────────────────
 const SENTRY_TIERS = [
-  /* 0 - Sentry           */ { name:'Sentry',           hp:250, dmg:10, cd:1.0, projSpd:800,  predictive:false },
-  /* 1 - Upgraded Sentry  */ { name:'Upgraded Sentry',  hp:275, dmg:15, cd:0.9, projSpd:850,  predictive:false },
-  /* 2 - Rifle Sentry     */ { name:'Rifle Sentry',     hp:300, dmg:25, cd:1.5, projSpd:1200, predictive:true  },
-  /* 3 - Minigun Sentry   */ { name:'Minigun Sentry',   hp:325, dmg:3,  cd:0.1, projSpd:1200, predictive:true  },
+  /* 0 - Sentry           */ { name:'Sentry',           hp:180, dmg:10, cd:1.0, projSpd:800,  predictive:false },
+  /* 1 - Upgraded Sentry  */ { name:'Upgraded Sentry',  hp:230, dmg:15, cd:0.9, projSpd:850,  predictive:false },
+  /* 2 - Rifle Sentry     */ { name:'Rifle Sentry',     hp:250, dmg:25, cd:1.5, projSpd:1200, predictive:true  },
+  /* 3 - Minigun Sentry   */ { name:'Minigun Sentry',   hp:300, dmg:3,  cd:0.1, projSpd:1200, predictive:true  },
   /* 4 - War Machine      */ { name:'War Machine Sentry',hp:350, dmg:5, cd:0.1, projSpd:1200, predictive:true  },
 ];
 const SENTRY_SZ = 50;
