@@ -134,7 +134,6 @@ class Sentry {
       }
       const a = Math.atan2(aimY - this.y, aimX - this.x);
       projs.push(new SentryProj(this.x, this.y, Math.cos(a) * this.projSpd, Math.sin(a) * this.projSpd, this));
-      SFX.playPitched('gun', -3, 3, 0.32);
     }
   }
 
@@ -262,7 +261,6 @@ class EngineerCharacter extends Character {
         const p = new Proj(this.x, this.y, Math.cos(this._aimAngle) * ENGI_BULLET_SPD, Math.sin(this._aimAngle) * ENGI_BULLET_SPD, this);
         p.dmg = this.bulletDmg; p._customImg = ENGI_BULLET_IMG; p._projSz = 16; p._hitboxSz = 14;
         projs.push(p);
-        SFX.playPitched('gun', -1.5, 1.5, 0.8);
       }
     } else {
       if (this._sledgeCD <= 0 && dist <= ENGI_SLEDGE_RANGE) {
