@@ -338,7 +338,7 @@ class EngineerCharacter extends Character {
     const sx = clamp(this.x + Math.cos(a) * d, h, AW - h);
     const sy = clamp(this.y + Math.sin(a) * d, h, AH - h);
     this.sentry = new Sentry(sx, sy, this.sentryTier, this);
-    SFX.play('teleport', 0.7);
+    // SFX.play('teleport', 0.7); // som removido — sentry agora nasce em silêncio
   }
 
   takeDamage(v) {
