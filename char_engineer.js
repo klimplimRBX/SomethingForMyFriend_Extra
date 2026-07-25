@@ -429,7 +429,7 @@ class EngineerCharacter extends Character {
   _drawXPBar(c, cx, topY) {
     const barW = 72, barH = 16;
     const hpBy = topY - barH - 6;
-    const xh = 5;
+    const xh = 9; // um pouco mais grossa que antes (era 5) pra caber o número do nível
     const xy = hpBy - xh - 3;
     const bx = cx - barW/2;
     const req = this.level >= 4 ? 1 : ENGI_XP_REQ[this.level + 1];
@@ -442,6 +442,12 @@ class EngineerCharacter extends Character {
       c.restore();
     }
     c.strokeStyle = 'rgba(0,0,0,0.7)'; c.lineWidth = 1; rrect(c, bx, xy, barW, xh, xh/2); c.stroke();
+    // Nível do Engineer, centralizado dentro da própria barrinha de XP.
+    c.font = `bold ${xh}px Arial Black,sans-serif`; c.textAlign = 'center';
+    c.lineWidth = 2; c.strokeStyle = 'rgba(0,0,0,0.85)';
+    c.strokeText('Nv.' + this.level, cx, xy + xh - 1.5);
+    c.fillStyle = 'white';
+    c.fillText('Nv.' + this.level, cx, xy + xh - 1.5);
     c.restore();
   }
 

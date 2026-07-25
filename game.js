@@ -135,8 +135,9 @@ const G = {
         if (p.hits(target.sentry)) {
           target.sentry.takeDamage(p.dmg!==undefined?p.dmg:PROJ_DMG);
           p.alive = false;
+          continue;
         }
-        continue;
+        // Não acertou a sentry — segue pro cálculo normal de colisão contra o Engineer.
       }
       // ── fim patch Engineer ──────────────────────────────────────
       if (target.alive && p.hits(target)) {
