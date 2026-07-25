@@ -22,6 +22,8 @@ const ENGI_CONFUSE_DUR  = 8.0;
 const ENGI_CONFUSE_FALLBACK_DEG = 10;
 const ENGI_SCRAP_NEEDED = 5;
 const ENGI_XP_REQ = { 1:70, 2:105, 3:150, 4:200 };
+const ENGI_XPBAR_H = 12;    // altura da barrinha de XP (era 5, depois 9)
+const ENGI_LEVEL_LABEL = 'Lv.'; // prefixo do nível mostrado dentro da barra de XP
 
 // ── SENTRY TIERS ────────────────────────────────────────────────
 const SENTRY_TIERS = [
@@ -429,7 +431,7 @@ class EngineerCharacter extends Character {
   _drawXPBar(c, cx, topY) {
     const barW = 72, barH = 16;
     const hpBy = topY - barH - 6;
-    const xh = 9; // um pouco mais grossa que antes (era 5) pra caber o número do nível
+    const xh = ENGI_XPBAR_H;
     const xy = hpBy - xh - 3;
     const bx = cx - barW/2;
     const req = this.level >= 4 ? 1 : ENGI_XP_REQ[this.level + 1];
@@ -445,9 +447,9 @@ class EngineerCharacter extends Character {
     // Nível do Engineer, centralizado dentro da própria barrinha de XP.
     c.font = `bold ${xh}px Arial Black,sans-serif`; c.textAlign = 'center';
     c.lineWidth = 2; c.strokeStyle = 'rgba(0,0,0,0.85)';
-    c.strokeText('Nv.' + this.level, cx, xy + xh - 1.5);
+    c.strokeText(ENGI_LEVEL_LABEL + this.level, cx, xy + xh - 1.5);
     c.fillStyle = 'white';
-    c.fillText('Nv.' + this.level, cx, xy + xh - 1.5);
+    c.fillText(ENGI_LEVEL_LABEL + this.level, cx, xy + xh - 1.5);
     c.restore();
   }
 
