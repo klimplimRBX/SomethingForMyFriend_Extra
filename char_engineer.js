@@ -128,6 +128,7 @@ class Sentry {
     this._revved = false;
     this._revT = 0;
     this._cd = 0;
+    this._hadTarget = false;   // pra detectar a transição "inimigo morreu/sumiu"
 
     // freezeTimer com setter: qualquer stun aplicado de fora (mesmo mecanismo
     // genérico usado contra personagens — ver char_custom.js onProjHit) dispara
@@ -165,6 +166,16 @@ class Sentry {
     this._collideCD = Math.max(0, this._collideCD - dt);
     this._other = other;
 
+    // Sem alvo vivo (inimigo morreu): "desliga" a torreta — para o loop de tiro
+    // e toca o SentryStop, senão ela fica com o SFX de disparo tocando à toa.
+    const hasTarget = !!(other && other.alive);
+    if (!hasTarget) {
+      if (this._hadTarget) { this._stopFireLoop(); SFX.play('sentryStop', 0.9); }
+      this._hadTarget = false;
+      return;
+    }
+    this._hadTarget = true;
+
     // Trava (stun): enquanto durar, não reveenta nem atira. Ao acabar, precisa
     // reveentar de novo antes de voltar a atirar (mesmo que já estivesse ativa antes).
     const wasFrozen = this.freezeTimer > 0;
@@ -183,7 +194,7 @@ class Sentry {
     const wantKey = this.tier >= 3 ? 'sentryFastFire' : 'sentrySlowFire';
     if (this._fireLoopKey !== wantKey) {
       this._stopFireLoop();
-      SFX.playLoop(wantKey, 0.55);
+      SFX.playLoop(wantKey, 0.55, false);
       this._fireLoopKey = wantKey;
     }
 
@@ -347,7 +358,7 @@ class EngineerCharacter extends Character {
         other.freezeTimer = Math.max(other.freezeTimer || 0, ENGI_STUN_DUR);
         applyConfusion(other, ENGI_CONFUSE_DUR);
         this._grantRewards(2, 50);
-        SFX.playPitched('kick', -2, 2, 1.0);
+        SFX.play('kick', 1.0);
       }
     }
   }

@@ -79,20 +79,20 @@ const SFX = {
     src.connect(gain); gain.connect(this._ctx.destination);
     src.start(0, Math.min(offset, buf.duration));
   },
-  playLoop(key, volume = 1) {
+  playLoop(key, volume = 1, varyPitch = true) {
     if (!this._ctx || !this._bufs[key] || this._loops[key]) return;
     const gain = this._ctx.createGain();
     gain.gain.value = volume;
     gain.connect(this._ctx.destination);
 
-    // Toca o buffer com variação aleatória a cada repetição
+    // Toca o buffer com variação aleatória a cada repetição (a menos que varyPitch=false)
     const scheduleNext = () => {
       if (!this._loops[key]) return; // foi parado
       const buf = this._bufs[key];
       const src = this._ctx.createBufferSource();
       src.buffer = buf;
       // Varia playbackRate: pitch/velocidade aleatória entre 0.78 e 1.22
-      src.playbackRate.value = 0.78 + Math.random() * 0.44;
+      src.playbackRate.value = varyPitch ? (0.78 + Math.random() * 0.44) : 1;
       src.connect(gain);
       // Duração real levando em conta o rate
       const duration = buf.duration / src.playbackRate.value;
