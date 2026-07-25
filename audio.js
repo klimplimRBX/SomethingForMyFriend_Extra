@@ -22,6 +22,14 @@ const SFX = {
         playerShoot:  'https://raw.githubusercontent.com/klimplimRBX/SomethingForMyFriend/main/PlayerShoot.mp3',
         playerReload: 'https://raw.githubusercontent.com/klimplimRBX/SomethingForMyFriend/main/PlayerReload.mp3',
         playerHeal:   'https://raw.githubusercontent.com/klimplimRBX/SomethingForMyFriend/main/PlayerHeal.mp3',
+        engineerLevelUp: 'https://raw.githubusercontent.com/klimplimRBX/SomethingForMyFriend/main/EngineerLevelUp.mp3',
+        sentryBuild1:    'https://raw.githubusercontent.com/klimplimRBX/SomethingForMyFriend/main/SentryBuild1.mp3',
+        sentryBuild2:    'https://raw.githubusercontent.com/klimplimRBX/SomethingForMyFriend/main/SentryBuild2.mp3',
+        sentryExplode:   'https://raw.githubusercontent.com/klimplimRBX/SomethingForMyFriend/main/SentryExplode.mp3',
+        sentryFastFire:  'https://raw.githubusercontent.com/klimplimRBX/SomethingForMyFriend/main/SentryFastFire.mp3',
+        sentrySlowFire:  'https://raw.githubusercontent.com/klimplimRBX/SomethingForMyFriend/main/SentrySlowFire.mp3',
+        sentryStop:      'https://raw.githubusercontent.com/klimplimRBX/SomethingForMyFriend/main/SentryStop.mp3',
+        sentryRev:       'https://raw.githubusercontent.com/klimplimRBX/SomethingForMyFriend/main/SentryRev.mp3',
       };
       await Promise.all(Object.entries(urls).map(async ([key, url]) => {
         const res = await fetch(url);

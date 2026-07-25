@@ -133,7 +133,12 @@ const G = {
       // atingir a sentry — o Engineer fica protegido ("forçado a atirar nela").
       if (target instanceof EngineerCharacter && target.sentry && target.sentry.alive && !(p.owner instanceof Sentry)) {
         if (p.hits(target.sentry)) {
-          target.sentry.takeDamage(p.dmg!==undefined?p.dmg:PROJ_DMG);
+          const _sentryHit = target.sentry;
+          _sentryHit.takeDamage(p.dmg!==undefined?p.dmg:PROJ_DMG);
+          // ENGINEER PATCH: mesmo gancho genérico de stun usado contra personagens
+          // (ver char_custom.js onProjHit) também vale pra sentry — é o que faz
+          // o SentryStop existir de fato, e não só tocar em teoria.
+          if (_sentryHit.alive && p.owner && p.owner.onProjHit) p.owner.onProjHit(p, _sentryHit);
           p.alive = false;
           continue;
         }

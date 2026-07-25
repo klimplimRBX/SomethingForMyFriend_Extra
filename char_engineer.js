@@ -21,6 +21,7 @@ const ENGI_STUN_DUR     = 2.0;
 const ENGI_CONFUSE_DUR  = 8.0;
 const ENGI_CONFUSE_FALLBACK_DEG = 10;
 const ENGI_SCRAP_NEEDED = 5;
+const SENTRY_REV_DELAY  = 0.8;    // delay antes da sentry começar a atirar (toca SentryRev)
 const ENGI_XP_REQ = { 1:70, 2:105, 3:150, 4:200 };
 const ENGI_XPBAR_H = 12;    // altura da barrinha de XP (era 5, depois 9)
 const ENGI_LEVEL_LABEL = 'Lv.'; // prefixo do nível mostrado dentro da barra de XP
@@ -71,8 +72,7 @@ function spawnSentryExplosion(x, y) {
       maxLife: 0.85, rot: Math.random() * Math.PI * 2, vrot: (Math.random() - 0.5) * 10,
     });
   }
-  // Sem SFX aqui de propósito: 'death' é o som de morte de personagem —
-  // usá-lo pra uma sentry explodindo confunde (parece que alguém morreu).
+  SFX.play('sentryExplode', 1.0);
 }
 function updateSentryParticles(dt) {
   for (let i = _sentryParticles.length - 1; i >= 0; i--) {
@@ -96,7 +96,11 @@ function drawSentryParticles(c) {
     c.restore();
   }
 }
-function resetSentryEffects() { _sentryParticles.length = 0; }
+function resetSentryEffects() {
+  _sentryParticles.length = 0;
+  SFX.stopLoop('sentryFastFire');
+  SFX.stopLoop('sentrySlowFire');
+}
 
 // ── PROJÉTIL DE SENTRY (10x10px, engibullet.png) ───────────────
 class SentryProj extends Proj {
@@ -117,15 +121,72 @@ class Sentry {
     this.hp = t.hp; this.maxHp = t.hp; this.dmg = t.dmg;
     this.cooldown = t.cd; this.projSpd = t.projSpd; this.predictive = t.predictive;
     this.alive = true; this.hitFlash = 0;
-    this._cd = this.cooldown * 0.4; // pequeno delay antes do 1º tiro
     // Campos exigidos pra interoperar com a colisão física genérica de Character._move()
     this.vx = 0; this.vy = 0; this.slowTimer = 0; this._collideCD = 0; this.noCollide = false;
+    this._other = null;        // pra saber pra que lado virar (flip), igual a moto
+    this._fireLoopKey = null;  // 'sentryFastFire' | 'sentrySlowFire' | null — loop de tiro tocando agora
+    this._revved = false;
+    this._revT = 0;
+    this._cd = 0;
+
+    // freezeTimer com setter: qualquer stun aplicado de fora (mesmo mecanismo
+    // genérico usado contra personagens — ver char_custom.js onProjHit) dispara
+    // o SentryStop e corta o loop de tiro assim que a torreta trava.
+    let _freeze = 0;
+    Object.defineProperty(this, 'freezeTimer', {
+      get: () => _freeze,
+      set: (v) => {
+        const nv = Math.max(0, v || 0);
+        if (nv > 0 && _freeze <= 0) {
+          this._stopFireLoop();
+          SFX.play('sentryStop', 0.9);
+        }
+        _freeze = nv;
+      },
+    });
+
+    this._startRev(); // recém-construída: toca SentryRev e espera antes de atirar
+  }
+
+  _startRev() {
+    this._revved = false;
+    this._revT = SENTRY_REV_DELAY;
+    this._stopFireLoop();
+    SFX.play('sentryRev', 0.85);
+  }
+
+  _stopFireLoop() {
+    if (this._fireLoopKey) { SFX.stopLoop(this._fireLoopKey); this._fireLoopKey = null; }
   }
 
   update(dt, other, projs) {
     if (!this.alive) return;
     this.hitFlash = Math.max(0, this.hitFlash - dt);
     this._collideCD = Math.max(0, this._collideCD - dt);
+    this._other = other;
+
+    // Trava (stun): enquanto durar, não reveenta nem atira. Ao acabar, precisa
+    // reveentar de novo antes de voltar a atirar (mesmo que já estivesse ativa antes).
+    const wasFrozen = this.freezeTimer > 0;
+    this.freezeTimer = Math.max(0, this.freezeTimer - dt);
+    if (wasFrozen && this.freezeTimer <= 0) this._startRev();
+    if (this.freezeTimer > 0) return;
+
+    if (!this._revved) {
+      this._revT -= dt;
+      if (this._revT <= 0) this._revved = true;
+      return; // não atira enquanto reveendo
+    }
+
+    // Loop de tiro conforme o tier: Minigun/War Machine usam o SFX longo e
+    // rápido, todo o resto usa o SFX lento — troca só quando o tier muda.
+    const wantKey = this.tier >= 3 ? 'sentryFastFire' : 'sentrySlowFire';
+    if (this._fireLoopKey !== wantKey) {
+      this._stopFireLoop();
+      SFX.playLoop(wantKey, 0.55);
+      this._fireLoopKey = wantKey;
+    }
+
     this._cd = Math.max(0, this._cd - dt);
     if (this._cd <= 0 && other && other.alive) {
       this._cd = this.cooldown;
@@ -148,6 +209,7 @@ class Sentry {
     this.hitFlash = 0.15;
     if (this.hp <= 0) {
       this.alive = false;
+      this._stopFireLoop();
       spawnSentryExplosion(this.x, this.y);
       if (this.master && this.master.sentry === this) this.master.sentry = null;
     }
@@ -156,25 +218,33 @@ class Sentry {
   // Usada quando uma sentry nova substitui uma existente — some sem explodir.
   dismiss() {
     this.alive = false;
+    this._stopFireLoop();
     if (this.master && this.master.sentry === this) this.master.sentry = null;
   }
 
   draw(c) {
     if (!this.alive) return;
     const sz = this.sz;
+    // Vira de lado igual "2 caras numa moto": encara quem estiver mirando/perseguindo.
+    const facingLeft = this._other && this._other.x < this.x;
+    c.save();
+    c.translate(this.x, this.y);
+    c.scale(facingLeft ? -1 : 1, 1);
     if (imgOk(SENTRY_IMG)) {
-      c.drawImage(SENTRY_IMG, this.x - sz/2, this.y - sz/2, sz, sz);
+      c.drawImage(SENTRY_IMG, -sz/2, -sz/2, sz, sz);
       if (this.hitFlash > 0) {
         const wt = getWhite(SENTRY_IMG);
-        if (wt) c.drawImage(wt, this.x - sz/2, this.y - sz/2, sz, sz);
+        if (wt) c.drawImage(wt, -sz/2, -sz/2, sz, sz);
       }
     } else {
       c.fillStyle = this.hitFlash > 0 ? '#fff' : '#7f8c8d';
-      c.fillRect(this.x - sz/2, this.y - sz/2, sz, sz);
+      c.fillRect(-sz/2, -sz/2, sz, sz);
       c.strokeStyle = 'white'; c.lineWidth = 2;
-      c.strokeRect(this.x - sz/2, this.y - sz/2, sz, sz);
+      c.strokeRect(-sz/2, -sz/2, sz, sz);
     }
-    // Nível acima da cabeça — só a partir do tier 1 (vida e nome ficam escondidos)
+    c.restore();
+    // Nível acima da cabeça — só a partir do tier 1 (vida e nome ficam escondidos).
+    // Fica fora do transform pra não espelhar o texto.
     if (this.tier >= 1) {
       c.save(); c.textAlign = 'center'; c.font = 'bold 12px Arial Black,sans-serif';
       c.lineWidth = 3; c.strokeStyle = 'rgba(0,0,0,0.9)';
@@ -198,6 +268,7 @@ class EngineerCharacter extends Character {
     this.sentry = null;
     this.sentryTier = 0;
     this._immuneToDebuffs = false;
+    this._lastBuildVoice = null; // alterna SentryBuild1/SentryBuild2 a cada sentry construída
 
     this.bulletDmg      = ENGI_BULLET_DMG;
     this.sledgeDmg       = ENGI_SLEDGE_DMG;
@@ -303,7 +374,7 @@ class EngineerCharacter extends Character {
       this.level++;
       this.xp = 0;
       this._applyLevelBonus(this.level);
-      SFX.play('money', 0.9);
+      SFX.play('engineerLevelUp', 0.9);
     }
   }
 
@@ -339,6 +410,20 @@ class EngineerCharacter extends Character {
     const sy = clamp(this.y + Math.sin(a) * d, h, AH - h);
     this.sentry = new Sentry(sx, sy, this.sentryTier, this);
     // SFX.play('teleport', 0.7); // som removido — sentry agora nasce em silêncio
+    this._playBuildVoice();
+  }
+
+  // Alterna estritamente entre as duas voicelines de build — se a última foi a
+  // build1, a próxima é a build2 (e vice-versa). A primeira é sorteada.
+  _playBuildVoice() {
+    let key;
+    if (!this._lastBuildVoice) {
+      key = Math.random() < 0.5 ? 'sentryBuild1' : 'sentryBuild2';
+    } else {
+      key = this._lastBuildVoice === 'sentryBuild1' ? 'sentryBuild2' : 'sentryBuild1';
+    }
+    this._lastBuildVoice = key;
+    SFX.play(key, 1.0);
   }
 
   takeDamage(v) {
