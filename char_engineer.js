@@ -379,7 +379,7 @@ class EngineerCharacter extends Character {
         const p = new Proj(spawnX, spawnY, Math.cos(this._aimAngle) * ENGI_BULLET_SPD, Math.sin(this._aimAngle) * ENGI_BULLET_SPD, this);
         p.dmg = this.bulletDmg; p._customImg = ENGI_BULLET_IMG; p._projSz = 28; p._hitboxSz = 17; p._rotateToVel = true; // 25% maior (era 28/14)
         projs.push(p);
-        SFX.playPitched('engineerShoot', -1.5, 1.5, 0.75);
+        SFX.playPitched('engineerShoot', -1.5, 1.5, 0.3);
       }
     } else {
       if (this._sledgeCD <= 0 && dist <= ENGI_SLEDGE_RANGE) {
