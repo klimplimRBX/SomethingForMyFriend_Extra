@@ -107,7 +107,7 @@ class SentryProj extends Proj {
   constructor(x, y, vx, vy, owner) {
     super(x, y, vx, vy, owner);
     this.dmg = owner.dmg;
-    this._projSz = 27.5; this._hitboxSz = 12.5; // 25% maior (era 22/10)
+    this._projSz = 22; this._hitboxSz = 14;
     this._customImg = ENGI_BULLET_IMG;
     this._rotateToVel = true;
   }
@@ -345,7 +345,7 @@ class EngineerCharacter extends Character {
       if (this._bulletCD <= 0) {
         this._bulletCD = this.bulletCooldown;
         const p = new Proj(this.x, this.y, Math.cos(this._aimAngle) * ENGI_BULLET_SPD, Math.sin(this._aimAngle) * ENGI_BULLET_SPD, this);
-        p.dmg = this.bulletDmg; p._customImg = ENGI_BULLET_IMG; p._projSz = 35; p._hitboxSz = 17.5; p._rotateToVel = true; // 25% maior (era 28/14)
+        p.dmg = this.bulletDmg; p._customImg = ENGI_BULLET_IMG; p._projSz = 28; p._hitboxSz = 17; p._rotateToVel = true; // 25% maior (era 28/14)
         projs.push(p);
       }
     } else {
