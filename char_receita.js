@@ -209,7 +209,7 @@ class ReceitaFederalCharacter extends Character {
         c.fillStyle='white'; c.font='bold 9px Arial'; c.textAlign='center';
         c.fillText('RF',this.x,this.y+4);
       }
-      if (this.freezeTimer>0) {
+      if (this.freezeTimer>0 && !isSilentlyStunned(this)) {
         c.save(); c.globalAlpha=0.40; c.fillStyle='#A0DFFF';
         c.fillRect(this.x-sz/2,this.y-sz/2,sz,sz); c.restore();
       }

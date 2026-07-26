@@ -418,6 +418,10 @@ const G = {
       c.drawImage(RF_IMGS.ReceitaFederal,sqX,sqY,sq,sq);
     } else if (isDog && imgOk(DOG_IMGS.MainDog)) {
       c.drawImage(DOG_IMGS.MainDog,sqX,sqY,sq,sq);
+    } else if (isEngi && imgOk(ENGI_IMG)) {
+      c.drawImage(ENGI_IMG,sqX,sqY,sq,sq);
+    } else if (type.cls===DarkNinjaCharacter && imgOk(DARKNINJA_IMGS.WinStartPose)) {
+      c.drawImage(DARKNINJA_IMGS.WinStartPose,sqX,sqY,sq,sq);
     } else if (isJevil) {
       // Desenha o losango do Jevil no card de seleção
       const cx2=sqX+sq/2, cy2=sqY+sq/2, r=sq*0.46;

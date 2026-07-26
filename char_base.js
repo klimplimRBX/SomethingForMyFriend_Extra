@@ -134,7 +134,7 @@ class Character {
         c.fillRect(this.x-this.sz/2,this.y-this.sz/2,this.sz,this.sz);
         c.restore();
       }
-      if (this.freezeTimer>0) {
+      if (this.freezeTimer>0 && !isSilentlyStunned(this)) {
         c.save(); c.globalAlpha=0.45;
         c.fillStyle='#A0DFFF';
         c.fillRect(this.x-this.sz/2,this.y-this.sz/2,this.sz,this.sz);

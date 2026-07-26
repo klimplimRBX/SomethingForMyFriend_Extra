@@ -271,7 +271,7 @@ class CustomCharacter extends Character {
         const wt=getWhite(img); if (wt) c.drawImage(wt, this.x - dw/2, this.y - dh/2, dw, dh);
       }
       // Freeze overlay
-      if (this.freezeTimer > 0) {
+      if (this.freezeTimer > 0 && !isSilentlyStunned(this)) {
         c.save(); c.globalAlpha=0.4; c.fillStyle='#A0DFFF';
         c.fillRect(this.x - dw/2, this.y - dh/2, dw, dh); c.restore();
       }

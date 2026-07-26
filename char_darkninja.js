@@ -21,14 +21,36 @@ const DKN_KATANA_STAGES = [
   { dmg: 125, cd: 0.6   },
   { dmg: 100,  cd: 0.4   },
   { dmg: 75,  cd: 0.2   },
-  { dmg: 100,  cd: 0.01 },
+  { dmg: 10,  cd: 0.125 },
 ];
 const DKN_KATANA_RANGE       = ENGI_SLEDGE_RANGE + 15; // pendência: ajustar testando in-game
 
 const DKN_FURY_MAX           = 10;
-const DKN_ENRAGED_DUR        = 90.0;
+const DKN_ENRAGED_DUR        = 6.0;
 const DKN_DASH_IMMUNE_DUR    = 2.0;
 const DKN_ENRAGED_MOVE_SPD   = 100;
+
+const DKN_FURY_PER_HIT_TAKEN = 0.2;   // fúria ganha por hit levado de inimigos
+const DKN_KATANA_SILENT_STUN_DUR = 6.5; // stun silencioso do 1º golpe de katana (~duração do Enraged)
+
+// ── ESTADO "EMPOWERED" (fúria máxima, sem ter usado o dash ainda) ──
+const DKN_EMPOWERED_DMG_MULT  = 0.5;  // dano recebido reduzido pela metade
+const DKN_EMPOWERED_STUN_MULT = 0.4;  // incremento de stun recebido fica em 40% (60% menos eficaz)
+
+// ── ANIMAÇÃO DE KILL (inimigo despedaçado ao morrer p/ Dark Ninja) ──
+const DKN_KILL_GRID          = 6;     // grid 6x6 de pedaços
+const DKN_KILL_GRAVITY       = 1400;
+const DKN_KILL_PIECE_MIN_SPD = 90;
+const DKN_KILL_PIECE_MAX_SPD = 260;
+const DKN_KILL_PIECE_MAXLIFE = 4.0;   // segurança: remove pedaço mesmo se não sair da arena
+const DKN_KILL_FADE_START    = 3.4;   // começa a sumir suavemente perto do fim da vida
+
+// ── BARRA DE FÚRIA CHEIA: paleta de vermelhos alternando + fumaça ──
+const DKN_FURYBAR_FULL_COLORS = ['#DC143C', '#722F37', '#8B0000', '#B22222', '#5C0000'];
+const DKN_FURYBAR_FLICKER_RATE = 0.12; // troca de cor a cada X segundos
+const DKN_FURY_SMOKE_RATE    = 0.09;   // intervalo entre baforadas de fumaça
+const DKN_FURY_SMOKE_N       = 5;      // partículas por baforada
+const DKN_FURY_SMOKE_LIFE    = 0.7;
 
 const DKN_START_POSE_DUR     = 2.0;
 const DKN_TAKEOUT_POSE_DUR   = 0.5;
@@ -113,6 +135,39 @@ class DarkNinjaCharacter extends Character {
 
     this._lastX = x; this._lastY = y;
     this._lastOther = null;
+
+    // Não empurra nem é empurrado — ele agora stunna em vez de precisar de
+    // espaço físico pra golpear, então fica parado na frente atacando.
+    this.noCollide = true;
+
+    // ── Barra de fúria cheia: flicker de vermelhos + fumaça ──────
+    this._furyFlickerT = 0;
+    this._furySmoke = []; this._furySmokeEmitT = 0;
+
+    // ── Animação de kill (inimigo despedaçado) ────────────────────
+    this._killPieces = [];
+
+    // ── freezeTimer com setter (mesmo padrão do Engineer): bloqueia stun
+    // totalmente durante _immune (2s do dash) e reduz o incremento em 60%
+    // quando _empowered (fúria máxima, ainda sem ter usado o dash). Isso
+    // também corrige o bug do dash+stun: um stun externo já não consegue
+    // mais "furar" a imunidade do dash escrevendo direto no campo.
+    let _freeze = 0;
+    Object.defineProperty(this, 'freezeTimer', {
+      get: () => _freeze,
+      set: (v) => {
+        const nv = Math.max(0, v || 0);
+        if (nv <= _freeze) { _freeze = nv; return; } // decaimento/reset — sempre permitido
+        if (this._immune) return; // stun novo bloqueado totalmente durante a imunidade do dash
+        const delta = nv - _freeze;
+        _freeze = _freeze + (this._empowered ? delta * DKN_EMPOWERED_STUN_MULT : delta);
+      },
+    });
+  }
+
+  // Fúria máxima e ainda não entrou no dash/enraged/dash de saída.
+  get _empowered() {
+    return this.fury >= DKN_FURY_MAX && this.state !== 'dash_in' && this.state !== 'enraged' && this.state !== 'dash_out';
   }
 
   _shoot() { /* substituído inteiramente pela máquina de estados abaixo */ }
@@ -133,6 +188,9 @@ class DarkNinjaCharacter extends Character {
     this._sweepPendingShurikens();
     this._updateMoveParticles(dt);
     this._updateFuryParticles(dt);
+    this._furyFlickerT += dt;
+    this._updateFurySmoke(dt);
+    this._updateKillPieces(dt);
 
     if (other && !other.alive && this.state !== 'victory') this._startVictory();
 
@@ -221,6 +279,7 @@ class DarkNinjaCharacter extends Character {
     if (p instanceof ShurikenProj && p.owner === this) {
       p._hit = true;
       this._addFury(DKN_FURY_PER_HIT, target);
+      if (!target.alive) this._triggerKillAnim(target);
     }
   }
 
@@ -266,6 +325,12 @@ class DarkNinjaCharacter extends Character {
     }
     this.fury = 0;
     this._immuneT = DKN_DASH_IMMUNE_DUR;
+    // Bugfix: se ele já estava stunnado (ex: stun longo de um custom character
+    // sem limite no editor) no exato momento em que a fúria bateu o máximo, o
+    // freezeTimer antigo sobrevivia e prendia o state machine em 'dash_in' até
+    // aquele stun (potencialmente enorme) acabar sozinho. Zera aqui — a
+    // imunidade que acabamos de ligar (_immuneT) já bloqueia novos stuns.
+    this.freezeTimer = 0;
   }
 
   _updateDashIn(dt, other) {
@@ -299,11 +364,19 @@ class DarkNinjaCharacter extends Character {
       const edgeDist = Math.max(0, d - (this.sz / 2 + otherSz / 2));
       if (this._katanaCD <= 0 && edgeDist <= DKN_KATANA_RANGE) {
         const stage = DKN_KATANA_STAGES[Math.min(this._enrageStageIdx, DKN_KATANA_STAGES.length - 1)];
+        const isFirstHit = this._enrageStageIdx === 0;
         this._katanaCD = stage.cd;
         this._swingT = DKN_KATANA_SWING_DUR;
         other.takeDamage(stage.dmg);
         SFX.playPitched('darkNinjaStab', -1.5, 1.5, 1.0);
         this.fury = Math.min(DKN_FURY_MAX, this.fury + 0.25);
+        // Primeiro golpe de katana também stunna — mas silenciosamente, sem
+        // o bloco azul de overlay (ver isSilentlyStunned em utils.js).
+        if (isFirstHit && other.alive) {
+          other._silentStunUntil = Date.now() + DKN_KATANA_SILENT_STUN_DUR * 1000;
+          other.freezeTimer = Math.max(other.freezeTimer || 0, DKN_KATANA_SILENT_STUN_DUR);
+        }
+        if (!other.alive) this._triggerKillAnim(other);
         if (this._enrageStageIdx < DKN_KATANA_STAGES.length - 1) this._enrageStageIdx++;
       }
     }
@@ -362,7 +435,9 @@ class DarkNinjaCharacter extends Character {
       this._immuneLabel = { x: this.x, y: this.y - this.sz / 2 - 22, fade: 0.9 };
       return;
     }
+    if (this._empowered) v = v * DKN_EMPOWERED_DMG_MULT;
     super.takeDamage(v, noSlow);
+    if (this.alive) this._addFury(DKN_FURY_PER_HIT_TAKEN, this._lastOther);
   }
   _tickImmuneLabel(dt) {
     if (this._immuneLabel) {
@@ -401,6 +476,97 @@ class DarkNinjaCharacter extends Character {
     }
   }
 
+  // ── BARRA DE FÚRIA CHEIA: cor alternando + fumaça ─────────────
+  _furyBarColor() {
+    const idx = Math.floor(this._furyFlickerT / DKN_FURYBAR_FLICKER_RATE) % DKN_FURYBAR_FULL_COLORS.length;
+    return DKN_FURYBAR_FULL_COLORS[idx];
+  }
+  _updateFurySmoke(dt) {
+    if (this.fury >= DKN_FURY_MAX) {
+      this._furySmokeEmitT -= dt;
+      if (this._furySmokeEmitT <= 0) {
+        this._furySmokeEmitT = DKN_FURY_SMOKE_RATE;
+        const color = this._furyBarColor();
+        for (let i = 0; i < DKN_FURY_SMOKE_N; i++) {
+          this._furySmoke.push({
+            ox: (Math.random() - 0.5) * 70, oy: 0,
+            vx: (Math.random() - 0.5) * 16, vy: -22 - Math.random() * 18,
+            sz: 3 + Math.random() * 4, life: DKN_FURY_SMOKE_LIFE * (0.7 + Math.random() * 0.4), maxLife: DKN_FURY_SMOKE_LIFE,
+            color,
+          });
+        }
+      }
+    }
+    for (let i = this._furySmoke.length - 1; i >= 0; i--) {
+      const p = this._furySmoke[i];
+      p.life -= dt;
+      if (p.life <= 0) { this._furySmoke.splice(i, 1); continue; }
+      p.ox += p.vx * dt; p.oy += p.vy * dt;
+    }
+  }
+  _drawFurySmoke(c, cx, fy) {
+    for (const p of this._furySmoke) {
+      const a = clamp(p.life / p.maxLife, 0, 1);
+      c.save(); c.globalAlpha = a; c.fillStyle = p.color;
+      c.fillRect(cx + p.ox - p.sz / 2, fy + p.oy - p.sz / 2, p.sz, p.sz);
+      c.restore();
+    }
+  }
+
+  // ── ANIMAÇÃO DE KILL (inimigo despedaçado, grid 6x6, gravidade) ──
+  _triggerKillAnim(target) {
+    if (!target) return;
+    const snapSize = Math.max(64, (target.sz || CHAR_SZ) * 1.7);
+    const snap = document.createElement('canvas');
+    snap.width = snapSize; snap.height = snapSize;
+    const sctx = snap.getContext('2d');
+    const wasAlive = target.alive, wasFlash = target.hitFlash;
+    target.alive = true; target.hitFlash = 0;
+    sctx.save();
+    sctx.translate(snapSize / 2 - target.x, snapSize / 2 - target.y);
+    try { target.draw(sctx); } catch (e) { /* snapshot best-effort */ }
+    sctx.restore();
+    target.alive = wasAlive; target.hitFlash = wasFlash;
+
+    const grid = DKN_KILL_GRID, cell = snapSize / grid;
+    for (let iy = 0; iy < grid; iy++) {
+      for (let ix = 0; ix < grid; ix++) {
+        const a = Math.random() * Math.PI * 2;
+        const spd = DKN_KILL_PIECE_MIN_SPD + Math.random() * (DKN_KILL_PIECE_MAX_SPD - DKN_KILL_PIECE_MIN_SPD);
+        this._killPieces.push({
+          img: snap, sx: ix * cell, sy: iy * cell, sw: cell, sh: cell,
+          x: target.x + (ix * cell + cell / 2 - snapSize / 2),
+          y: target.y + (iy * cell + cell / 2 - snapSize / 2),
+          vx: Math.cos(a) * spd, vy: Math.sin(a) * spd - 160 - Math.random() * 80,
+          rot: Math.random() * Math.PI * 2, vrot: (Math.random() - 0.5) * 8,
+          life: 0,
+        });
+      }
+    }
+  }
+  _updateKillPieces(dt) {
+    for (let i = this._killPieces.length - 1; i >= 0; i--) {
+      const p = this._killPieces[i];
+      p.life += dt;
+      p.vy += DKN_KILL_GRAVITY * dt;
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      p.rot += p.vrot * dt;
+      if (p.y > AH + 220 || p.life > DKN_KILL_PIECE_MAXLIFE) this._killPieces.splice(i, 1);
+    }
+  }
+  _drawKillPieces(c) {
+    for (const p of this._killPieces) {
+      const alpha = p.life > DKN_KILL_FADE_START
+        ? clamp(1 - (p.life - DKN_KILL_FADE_START) / (DKN_KILL_PIECE_MAXLIFE - DKN_KILL_FADE_START), 0, 1)
+        : 1;
+      c.save();
+      c.globalAlpha = alpha;
+      c.translate(p.x, p.y); c.rotate(p.rot);
+      c.drawImage(p.img, p.sx, p.sy, p.sw, p.sh, -p.sw / 2, -p.sh / 2, p.sw, p.sh);
+      c.restore();
+    }
+  }
+
   // ── PARTÍCULAS DE MOVIMENTO (trilha preta, fora do Enraged) ──
   _updateMoveParticles(dt) {
     const dx = this.x - this._lastX, dy = this.y - this._lastY;
@@ -410,7 +576,12 @@ class DarkNinjaCharacter extends Character {
       this._moveEmitT -= dt;
       if (this._moveEmitT <= 0 && speed > 5) {
         this._moveEmitT = DKN_MOVE_PARTICLE_RATE;
-        this._moveParticles.push({ x: this.x, y: this.y, life: DKN_MOVE_PARTICLE_LIFE, maxLife: DKN_MOVE_PARTICLE_LIFE, sz: 10 + Math.random() * 6 });
+        const img = DARKNINJA_IMGS[this._currentImgKey()];
+        const facingLeft = this._lastOther && this._lastOther.alive && this._lastOther.x < this.x;
+        this._moveParticles.push({
+          x: this.x, y: this.y, life: DKN_MOVE_PARTICLE_LIFE, maxLife: DKN_MOVE_PARTICLE_LIFE,
+          sz: this.sz * DKN_VISUAL_SCALE, img, facingLeft,
+        });
       }
     }
     for (let i = this._moveParticles.length - 1; i >= 0; i--) {
@@ -422,8 +593,16 @@ class DarkNinjaCharacter extends Character {
   _drawMoveParticles(c) {
     for (const p of this._moveParticles) {
       const a = clamp(p.life / p.maxLife, 0, 1) * 0.35;
-      c.save(); c.globalAlpha = a; c.fillStyle = '#000';
-      c.beginPath(); c.arc(p.x, p.y, p.sz / 2, 0, Math.PI * 2); c.fill();
+      c.save();
+      c.globalAlpha = a;
+      c.translate(p.x, p.y);
+      c.scale(p.facingLeft ? -1 : 1, 1);
+      if (imgOk(p.img)) {
+        c.drawImage(p.img, -p.sz / 2, -p.sz / 2, p.sz, p.sz);
+      } else {
+        c.fillStyle = '#000';
+        c.beginPath(); c.arc(0, 0, p.sz / 2.5, 0, Math.PI * 2); c.fill();
+      }
       c.restore();
     }
   }
@@ -446,6 +625,7 @@ class DarkNinjaCharacter extends Character {
   draw(c) {
     if (!this.alive) { this._drawLabels(c); return; }
     this._drawMoveParticles(c);
+    this._drawKillPieces(c);
 
     const sz = this.sz * DKN_VISUAL_SCALE; // só visual — hitbox (this.sz) não muda
     const facingLeft = this._lastOther && this._lastOther.alive && this._lastOther.x < this.x;
@@ -549,13 +729,16 @@ class DarkNinjaCharacter extends Character {
     const bx = cx - barW / 2;
     const ratio = clamp(this.fury / DKN_FURY_MAX, 0, 1);
     c.save();
+    const isFull = ratio >= 1;
     c.fillStyle = 'rgba(0,0,0,0.55)'; rrect(c, bx, fy, barW, fh, fh / 2); c.fill();
     if (ratio > 0) {
       c.save(); rrect(c, bx, fy, barW, fh, fh / 2); c.clip();
-      c.fillStyle = '#8B0000'; c.fillRect(bx, fy, barW * ratio, fh);
+      c.fillStyle = isFull ? this._furyBarColor() : '#8B0000';
+      c.fillRect(bx, fy, barW * ratio, fh);
       c.restore();
     }
     c.strokeStyle = 'rgba(0,0,0,0.9)'; c.lineWidth = 1; rrect(c, bx, fy, barW, fh, fh / 2); c.stroke();
+    if (isFull) this._drawFurySmoke(c, cx, fy);
     c.font = `bold ${fh - 2}px Arial Black,sans-serif`; c.textAlign = 'center';
     c.lineWidth = 2; c.strokeStyle = 'rgba(0,0,0,0.9)';
     const label = 'Fury: ' + Math.floor(this.fury);

@@ -15,6 +15,14 @@ window.addEventListener('resize', fit);
 const lerp  = (a,b,t) => a+(b-a)*t;
 const clamp = (v,lo,hi) => Math.max(lo,Math.min(hi,v));
 
+// Stun "silencioso" do primeiro golpe de katana do Dark Ninja: o alvo fica
+// congelado (freezeTimer) normalmente, mas sem o bloco azul de overlay.
+// Usa um timestamp de parede (Date.now()) pra não depender do update() de
+// cada char_*.js individual — funciona em qualquer subclasse de Character.
+function isSilentlyStunned(ch) {
+  return !!(ch && ch._silentStunUntil && Date.now() < ch._silentStunUntil);
+}
+
 function rrect(c, x, y, w, h, r) {
   r = Math.min(r, w/2, h/2);
   c.beginPath();
