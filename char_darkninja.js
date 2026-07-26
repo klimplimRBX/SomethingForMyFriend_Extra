@@ -21,7 +21,7 @@ const DKN_KATANA_STAGES = [
   { dmg: 125, cd: 0.6   },
   { dmg: 100,  cd: 0.4   },
   { dmg: 75,  cd: 0.2   },
-  { dmg: 100,  cd: 0.125 },
+  { dmg: 100,  cd: 0.05 },
 ];
 const DKN_KATANA_RANGE       = ENGI_SLEDGE_RANGE + 15; // pendência: ajustar testando in-game
 
