@@ -21,12 +21,12 @@ const DKN_KATANA_STAGES = [
   { dmg: 125, cd: 0.6   },
   { dmg: 100,  cd: 0.4   },
   { dmg: 75,  cd: 0.2   },
-  { dmg: 10,  cd: 0.125 },
+  { dmg: 100,  cd: 0.125 },
 ];
 const DKN_KATANA_RANGE       = ENGI_SLEDGE_RANGE + 15; // pendência: ajustar testando in-game
 
 const DKN_FURY_MAX           = 10;
-const DKN_ENRAGED_DUR        = 6.0;
+const DKN_ENRAGED_DUR        = 90.0;
 const DKN_DASH_IMMUNE_DUR    = 2.0;
 const DKN_ENRAGED_MOVE_SPD   = 100;
 
