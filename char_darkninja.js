@@ -12,16 +12,16 @@ const DKN_SHURIKEN_DMG       = 40;
 const DKN_SHURIKEN_BURST_N   = 3;
 const DKN_SHURIKEN_SHOT_CD   = 0.75;
 const DKN_SHURIKEN_RELOAD_CD = 2.0;
-const DKN_FURY_PER_HIT       = 1;
-const DKN_FURY_PER_MISS      = 2;
+const DKN_FURY_PER_HIT       = 2;
+const DKN_FURY_PER_MISS      = 3;
 const DKN_SHURIKEN_NO_REPEAT = 2;
 
 const DKN_KATANA_STAGES = [
-  { dmg: 125, cd: 1.0  },
-  { dmg: 100, cd: 0.75 },
-  { dmg: 80,  cd: 0.5  },
-  { dmg: 60,  cd: 0.25 },
-  { dmg: 40,  cd: 0.2  },
+  { dmg: 125, cd: 0.7   },
+  { dmg: 100, cd: 0.6   },
+  { dmg: 80,  cd: 0.4   },
+  { dmg: 60,  cd: 0.2   },
+  { dmg: 40,  cd: 0.125 },
 ];
 const DKN_KATANA_RANGE       = ENGI_SLEDGE_RANGE + 15; // pendência: ajustar testando in-game
 
@@ -36,7 +36,7 @@ const DKN_THROW_POSE_DUR     = 0.5;
 const DKN_WIN_KATANAPOSE_DUR = 1.0;
 
 // ── ASSUNÇÕES (não estavam na spec — ajustar se precisar) ───────
-const DKN_SHURIKEN_SPD       = 1000;   // velocidade do shuriken (aumentada — mais rápida, mas ainda abaixo da bala do Engineer)
+const DKN_SHURIKEN_SPD       = 1300;   // velocidade do shuriken (aumentada de novo — ainda abaixo da bala do Engineer, 1500)
 const DKN_DASH_IN_DUR        = 0.4;    // duração do dash de entrada
 const DKN_DASH_OUT_DUR       = 0.4;    // duração do dash de saída (sem imunidade — ver pendência)
 const DKN_DASH_OUT_DIST      = 220;    // quanto recua no dash de saída
@@ -94,6 +94,7 @@ class DarkNinjaCharacter extends Character {
     this._subState = null; this._subT = 0;
 
     this._burstCount = 0;
+    this._burstDone = false;
     this._shurikenShotCD = 0;
     this._throwPoseT = 0;
     this._recentShurikenIdxs = [];
@@ -174,15 +175,19 @@ class DarkNinjaCharacter extends Character {
       case 'throw':
         this._shurikenShotCD -= dt;
         this._throwPoseT = Math.max(0, this._throwPoseT - dt);
-        if (this._shurikenShotCD <= 0 && other && other.alive) {
+        if (this._shurikenShotCD <= 0 && !this._burstDone && other && other.alive) {
           this._throwShuriken(other, projs);
           this._throwPoseT = DKN_THROW_POSE_DUR;
           this._burstCount++;
           if (this._burstCount >= DKN_SHURIKEN_BURST_N) {
-            this._subState = 'wait_reload'; this._subT = DKN_SHURIKEN_RELOAD_CD; this._burstCount = 0;
+            this._burstDone = true; // espera a pose do último arremesso terminar antes de recarregar
           } else {
             this._shurikenShotCD = DKN_SHURIKEN_SHOT_CD;
           }
+        }
+        if (this._burstDone && this._throwPoseT <= 0) {
+          this._subState = 'wait_reload'; this._subT = DKN_SHURIKEN_RELOAD_CD;
+          this._burstCount = 0; this._burstDone = false;
         }
         break;
       case 'wait_reload':
@@ -297,8 +302,8 @@ class DarkNinjaCharacter extends Character {
         this._katanaCD = stage.cd;
         this._swingT = DKN_KATANA_SWING_DUR;
         other.takeDamage(stage.dmg);
-        SFX.play('darkNinjaStab', 1.0);
-        this.fury = Math.min(DKN_FURY_MAX, this.fury + 0.2);
+        SFX.playPitched('darkNinjaStab', -1.5, 1.5, 1.0);
+        this.fury = Math.min(DKN_FURY_MAX, this.fury + 0.25);
         if (this._enrageStageIdx < DKN_KATANA_STAGES.length - 1) this._enrageStageIdx++;
       }
     }
@@ -333,7 +338,7 @@ class DarkNinjaCharacter extends Character {
     if (t >= 1) {
       this.state = 'shuriken_cycle';
       this._subState = 'takeout'; this._subT = DKN_TAKEOUT_POSE_DUR;
-      this._burstCount = 0; this._shurikenShotCD = 0; this._throwPoseT = 0;
+      this._burstCount = 0; this._burstDone = false; this._shurikenShotCD = 0; this._throwPoseT = 0;
     }
   }
 
