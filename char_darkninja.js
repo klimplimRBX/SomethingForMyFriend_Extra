@@ -21,7 +21,7 @@ const DKN_KATANA_STAGES = [
   { dmg: 125, cd: 0.6   },
   { dmg: 100,  cd: 0.4   },
   { dmg: 75,  cd: 0.2   },
-  { dmg: 20,  cd: 0.125 },
+  { dmg: 10,  cd: 0.125 },
 ];
 const DKN_KATANA_RANGE       = ENGI_SLEDGE_RANGE + 15; // pendência: ajustar testando in-game
 
@@ -40,7 +40,7 @@ const DKN_SHURIKEN_SPD       = 1300;   // velocidade do shuriken (aumentada de n
 const DKN_DASH_IN_DUR        = 0.4;    // duração do dash de entrada
 const DKN_DASH_OUT_DUR       = 0.4;    // duração do dash de saída (sem imunidade — ver pendência)
 const DKN_DASH_OUT_DIST      = 220;    // quanto recua no dash de saída
-const DKN_FURY_SHAKE_DUR     = 4.0;    // duração do screenshake ao encher fúria
+const DKN_FURY_SHAKE_DUR     = 7.0;    // duração do screenshake ao encher fúria
 const DKN_KATANA_SWING_DUR   = 0.14;   // duração visual do golpe (mesmo timing do swing do Engineer)
 const DKN_SWING_ARC_SPAN     = 100 * Math.PI / 180;
 const DKN_SWING_ARC_RADIUS   = 190;
