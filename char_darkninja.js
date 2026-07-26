@@ -5,23 +5,23 @@
 //             AW, AH, SFX, imgOk, getWhite, clamp, lerp, rrect, canvas, DPR, cam
 
 // ── CONSTANTS (da spec) ─────────────────────────────────────────
-const DKN_HP                = 1050;
+const DKN_HP                = 1500;
 const DKN_SPREAD             = 0;      // mira com predição, sem spread aleatório
 
-const DKN_SHURIKEN_DMG       = 40;
+const DKN_SHURIKEN_DMG       = 50;
 const DKN_SHURIKEN_BURST_N   = 3;
-const DKN_SHURIKEN_SHOT_CD   = 0.75;
-const DKN_SHURIKEN_RELOAD_CD = 2.0;
+const DKN_SHURIKEN_SHOT_CD   = 0.7;
+const DKN_SHURIKEN_RELOAD_CD = 1.5;
 const DKN_FURY_PER_HIT       = 2;
 const DKN_FURY_PER_MISS      = 3;
 const DKN_SHURIKEN_NO_REPEAT = 2;
 
 const DKN_KATANA_STAGES = [
-  { dmg: 125, cd: 0.7   },
-  { dmg: 100, cd: 0.6   },
-  { dmg: 80,  cd: 0.4   },
-  { dmg: 60,  cd: 0.2   },
-  { dmg: 40,  cd: 0.125 },
+  { dmg: 150, cd: 0.7   },
+  { dmg: 125, cd: 0.6   },
+  { dmg: 100,  cd: 0.4   },
+  { dmg: 75,  cd: 0.2   },
+  { dmg: 20,  cd: 0.125 },
 ];
 const DKN_KATANA_RANGE       = ENGI_SLEDGE_RANGE + 15; // pendência: ajustar testando in-game
 
@@ -40,7 +40,7 @@ const DKN_SHURIKEN_SPD       = 1300;   // velocidade do shuriken (aumentada de n
 const DKN_DASH_IN_DUR        = 0.4;    // duração do dash de entrada
 const DKN_DASH_OUT_DUR       = 0.4;    // duração do dash de saída (sem imunidade — ver pendência)
 const DKN_DASH_OUT_DIST      = 220;    // quanto recua no dash de saída
-const DKN_FURY_SHAKE_DUR     = 0.4;    // duração do screenshake ao encher fúria
+const DKN_FURY_SHAKE_DUR     = 4.0;    // duração do screenshake ao encher fúria
 const DKN_KATANA_SWING_DUR   = 0.14;   // duração visual do golpe (mesmo timing do swing do Engineer)
 const DKN_SWING_ARC_SPAN     = 100 * Math.PI / 180;
 const DKN_SWING_ARC_RADIUS   = 190;
