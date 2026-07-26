@@ -36,7 +36,7 @@ const DKN_KATANA_STUN_BUFFER = 0.5;   // folga somada ao tempo restante de Enrag
 
 // ── COMBATE NO ENRAGED: empurrão, distância mínima e velocidade de perseguição ──
 const DKN_KATANA_PUSHBACK         = 5;    // px que cada golpe empurra o inimigo pra trás
-const DKN_ENRAGED_STOP_GAP        = 20;   // px de folga além do contato — ele não entra no inimigo
+const DKN_ENRAGED_STOP_GAP        = 40;   // px de folga além do contato — ele não entra no inimigo
 const DKN_ENRAGED_STUNNED_FOLLOW_SPD = 70; // velocidade de perseguição quando o alvo já está stunnado
 
 // ── ESTADO "EMPOWERED" (fúria máxima, sem ter usado o dash ainda) ──
