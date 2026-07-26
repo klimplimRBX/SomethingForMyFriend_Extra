@@ -22,14 +22,16 @@ const ENGI_CONFUSE_DUR  = 8.0;
 const ENGI_CONFUSE_FALLBACK_DEG = 10;
 const ENGI_SCRAP_NEEDED = 5;
 const SENTRY_REV_DELAY  = 0.8;    // delay antes da sentry começar a atirar (toca SentryRev)
-const ENGI_XP_REQ = { 1:80, 2:120, 3:160, 4:220 };
+const ENGI_XP_REQ = { 1:70, 2:105, 3:150, 4:200 };
 const ENGI_XPBAR_H = 12;    // altura da barrinha de XP (era 5, depois 9)
 const ENGI_LEVEL_LABEL = 'Lv.'; // prefixo do nível mostrado dentro da barra de XP
-const ENGI_WEAPON_SIZE  = 44;   // altura de desenho da arma (mesma escala usada pro "Você")
+const ENGI_WEAPON_SIZE   = 54;   // altura de desenho da arma (era 44 — um pouco maior)
+const ENGI_WEAPON_EDGE   = -6;   // distância do centro do corpo até o cabo da arma (negativo = "afundada" um pouco nele, mais colada)
 const ENGI_AIM_WOBBLE_DEG  = 9;    // amplitude máxima do balanço "humano" da mira, em graus
 const ENGI_AIM_LOCK_TIME   = 0.3;  // segundos antes do tiro em que a mira para de balançar e trava no alvo
 const ENGI_AIM_WOBBLE_LERP = 3.5;  // velocidade com que a arma persegue o alvo de balanço
 const ENGI_AIM_LOCK_LERP   = 11;   // velocidade (maior = mais brusco) com que a arma trava na mira certeira
+const ENGI_AIM_TREMBLE_DEG = 1.4;  // amplitude do tremor fino contínuo da mão (bem menor que o wobble)
 
 // ── SENTRY TIERS ────────────────────────────────────────────────
 const SENTRY_TIERS = [
@@ -302,6 +304,7 @@ class EngineerCharacter extends Character {
     this._wobbleOffset  = 0;
     this._wobbleTarget  = 0;
     this._wobbleT       = 0;
+    this._trembleClock  = Math.random() * 10; // fase aleatória pra não sincronizar entre engineers
 
     // ── Nível 4: imunidade a stun/slow/confusão ──
     // Interceptamos via getters/setters — qualquer código externo (Baiano Z,
@@ -365,7 +368,16 @@ class EngineerCharacter extends Character {
       const wobbleGoal = aboutToFire ? 0 : this._wobbleTarget;
       const lerpSpd = aboutToFire ? ENGI_AIM_LOCK_LERP : ENGI_AIM_WOBBLE_LERP;
       this._wobbleOffset = lerp(this._wobbleOffset, wobbleGoal, clamp(dt * lerpSpd, 0, 1));
-      this._weaponAngle = this._aimAngle + this._wobbleOffset;
+
+      // Tremor fino contínuo (mão instável) — some quando está prestes a atirar,
+      // já que ele "segura firme" a arma no instante do disparo.
+      this._trembleClock += dt;
+      let tremble = 0;
+      if (!aboutToFire) {
+        tremble = Math.sin(this._trembleClock * 17) * (ENGI_AIM_TREMBLE_DEG * Math.PI/180)
+                + Math.sin(this._trembleClock * 11.3 + 1.7) * (ENGI_AIM_TREMBLE_DEG * 0.6 * Math.PI/180);
+      }
+      this._weaponAngle = this._aimAngle + this._wobbleOffset + tremble;
 
       if (this._bulletCD <= 0) {
         this._bulletCD = this.bulletCooldown;
@@ -373,7 +385,7 @@ class EngineerCharacter extends Character {
         this._weaponAngle = this._aimAngle;
         const gH = ENGI_WEAPON_SIZE;
         const gW = imgOk(ENGI_WEAPON_IMG) ? gH * (ENGI_WEAPON_IMG.naturalWidth / ENGI_WEAPON_IMG.naturalHeight) : gH * (76/44);
-        const gunTip = (this.sz/2 + 6) + gW;
+        const gunTip = (this.sz/2 + ENGI_WEAPON_EDGE) + gW;
         const spawnX = this.x + Math.cos(this._aimAngle) * gunTip;
         const spawnY = this.y + Math.sin(this._aimAngle) * gunTip;
         const p = new Proj(spawnX, spawnY, Math.cos(this._aimAngle) * ENGI_BULLET_SPD, Math.sin(this._aimAngle) * ENGI_BULLET_SPD, this);
@@ -513,7 +525,7 @@ class EngineerCharacter extends Character {
       if (this._mode === 'ranged' && imgOk(ENGI_WEAPON_IMG)) {
         const gH = ENGI_WEAPON_SIZE;
         const gW = gH * (ENGI_WEAPON_IMG.naturalWidth / ENGI_WEAPON_IMG.naturalHeight);
-        const edgeDist = sz/2 + 6;
+        const edgeDist = sz/2 + ENGI_WEAPON_EDGE;
         const gx = this.x + Math.cos(this._weaponAngle) * edgeDist;
         const gy = this.y + Math.sin(this._weaponAngle) * edgeDist;
         c.save();
