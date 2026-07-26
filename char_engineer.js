@@ -32,6 +32,7 @@ const ENGI_AIM_LOCK_TIME   = 0.3;  // segundos antes do tiro em que a mira para 
 const ENGI_AIM_WOBBLE_LERP = 3.5;  // velocidade com que a arma persegue o alvo de balanço
 const ENGI_AIM_LOCK_LERP   = 11;   // velocidade (maior = mais brusco) com que a arma trava na mira certeira
 const ENGI_AIM_TREMBLE_DEG = 1.4;  // amplitude do tremor fino contínuo da mão (bem menor que o wobble)
+const ENGI_SLEDGE_VIS_MIN  = 0.35; // tempo mínimo (s) que a marreta fica visível após o golpe, mesmo se o knockback já te tirar do alcance
 
 // ── SENTRY TIERS ────────────────────────────────────────────────
 const SENTRY_TIERS = [
@@ -296,6 +297,7 @@ class EngineerCharacter extends Character {
     this._bulletCD  = 0;
     this._sledgeCD  = 0;
     this._swingT    = 0;
+    this._sledgeVisT = 0; // segura a marreta visível um pouco após o golpe, mesmo que o knockback já tenha te empurrado pra fora do alcance
     this._aimAngle  = 0;
 
     // ── Mira "humana" da arma: balança levemente enquanto não está prestes a
@@ -342,6 +344,7 @@ class EngineerCharacter extends Character {
   _shoot(dt, other, projs) {
     this._bulletCD = Math.max(0, this._bulletCD - dt);
     this._sledgeCD = Math.max(0, this._sledgeCD - dt);
+    this._sledgeVisT = Math.max(0, this._sledgeVisT - dt);
     if (!other || !other.alive) return;
 
     const dx = other.x - this.x, dy = other.y - this.y;
@@ -397,6 +400,7 @@ class EngineerCharacter extends Character {
       if (this._sledgeCD <= 0 && dist <= ENGI_SLEDGE_RANGE) {
         this._sledgeCD = this.sledgeCooldown;
         this._swingT = ENGI_SWING_DUR;
+        this._sledgeVisT = ENGI_SLEDGE_VIS_MIN;
         other.takeDamage(this.sledgeDmg);
         knockbackChar(this, other, ENGI_KNOCKBACK);
         other.freezeTimer = Math.max(other.freezeTimer || 0, ENGI_STUN_DUR);
@@ -502,8 +506,10 @@ class EngineerCharacter extends Character {
       const sz = this.sz;
       const half = ENGI_SWING_ARC_SPAN / 2;
       const swingProg = this._swingT > 0 ? clamp(1 - (this._swingT / ENGI_SWING_DUR), 0, 1) : 0;
-      // Marreta: só aparece perto do alvo (modo Sledge), com swing na frente do personagem
-      if (this._mode === 'sledge') {
+      // Marreta: aparece no modo Sledge, e continua visível por um instante
+      // após o golpe (mesmo que o knockback já tenha te tirado do alcance),
+      // pra dar tempo do swing aparecer de verdade.
+      if (this._mode === 'sledge' || this._sledgeVisT > 0) {
         const gH = 46;
         const gW = imgOk(ENGI_SLEDGE_IMG) ? gH * (ENGI_SLEDGE_IMG.naturalWidth / ENGI_SLEDGE_IMG.naturalHeight) : gH;
         const swingOffset = this._swingT > 0 ? lerp(-half, half, swingProg) : 0;
@@ -522,7 +528,7 @@ class EngineerCharacter extends Character {
       }
       // Arma: só aparece no modo Ranged, apontando para this._weaponAngle
       // (balança levemente enquanto não está prestes a atirar — ver _shoot)
-      if (this._mode === 'ranged' && imgOk(ENGI_WEAPON_IMG)) {
+      if (this._mode === 'ranged' && this._sledgeVisT <= 0 && imgOk(ENGI_WEAPON_IMG)) {
         const gH = ENGI_WEAPON_SIZE;
         const gW = gH * (ENGI_WEAPON_IMG.naturalWidth / ENGI_WEAPON_IMG.naturalHeight);
         const edgeDist = sz/2 + ENGI_WEAPON_EDGE;
