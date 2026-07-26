@@ -2,7 +2,8 @@
 
 // ── DARK NINJA ──────────────────────────────────────────────────
 // Depende de: Character, Proj, DARKNINJA_IMGS, SHURIKEN_IMGS, ENGI_SLEDGE_RANGE,
-//             AW, AH, SFX, imgOk, getWhite, clamp, lerp, rrect, canvas, DPR, cam
+//             knockbackChar (char_engineer.js), AW, AH, SFX, imgOk, getWhite,
+//             clamp, lerp, rrect, canvas, DPR, cam, isSilentlyStunned (utils.js)
 
 // ── CONSTANTS (da spec) ─────────────────────────────────────────
 const DKN_HP                = 1500;
@@ -31,7 +32,12 @@ const DKN_DASH_IMMUNE_DUR    = 2.0;
 const DKN_ENRAGED_MOVE_SPD   = 100;
 
 const DKN_FURY_PER_HIT_TAKEN = 0.2;   // fúria ganha por hit levado de inimigos
-const DKN_KATANA_SILENT_STUN_DUR = 6.5; // stun silencioso do 1º golpe de katana (~duração do Enraged)
+const DKN_KATANA_STUN_BUFFER = 0.5;   // folga somada ao tempo restante de Enraged pra cobrir até o próximo golpe
+
+// ── COMBATE NO ENRAGED: empurrão, distância mínima e velocidade de perseguição ──
+const DKN_KATANA_PUSHBACK         = 5;    // px que cada golpe empurra o inimigo pra trás
+const DKN_ENRAGED_STOP_GAP        = 20;   // px de folga além do contato — ele não entra no inimigo
+const DKN_ENRAGED_STUNNED_FOLLOW_SPD = 70; // velocidade de perseguição quando o alvo já está stunnado
 
 // ── ESTADO "EMPOWERED" (fúria máxima, sem ter usado o dash ainda) ──
 const DKN_EMPOWERED_DMG_MULT  = 0.5;  // dano recebido reduzido pela metade
@@ -354,27 +360,38 @@ class DarkNinjaCharacter extends Character {
     if (other && other.alive) {
       const dx = other.x - this.x, dy = other.y - this.y;
       const d = Math.hypot(dx, dy);
-      if (d > 1) {
+      const otherSz = other.sz !== undefined ? other.sz : this.sz;
+      // Distância mínima que ele mantém — não anda pra dentro do inimigo.
+      // Perto de paredes o knockback do golpe não consegue afastar o inimigo
+      // (fica preso na borda da arena), então essa distância acaba menor que
+      // o gap ideal e ele simplesmente não avança mais — fica parado atacando.
+      const stopDist = this.sz / 2 + otherSz / 2 + DKN_ENRAGED_STOP_GAP;
+      if (d > stopDist) {
         const nx = dx / d, ny = dy / d;
-        this.x = clamp(this.x + nx * DKN_ENRAGED_MOVE_SPD * dt, this.sz / 2, AW - this.sz / 2);
-        this.y = clamp(this.y + ny * DKN_ENRAGED_MOVE_SPD * dt, this.sz / 2, AH - this.sz / 2);
+        // Rápido até stunnar o alvo; uma vez stunnado, só acompanha devagar.
+        const chaseSpd = other.freezeTimer > 0 ? DKN_ENRAGED_STUNNED_FOLLOW_SPD : DKN_ENRAGED_MOVE_SPD;
+        this.x = clamp(this.x + nx * chaseSpd * dt, this.sz / 2, AW - this.sz / 2);
+        this.y = clamp(this.y + ny * chaseSpd * dt, this.sz / 2, AH - this.sz / 2);
       }
       this._aimAngle = Math.atan2(dy, dx);
-      const otherSz = other.sz !== undefined ? other.sz : this.sz;
       const edgeDist = Math.max(0, d - (this.sz / 2 + otherSz / 2));
       if (this._katanaCD <= 0 && edgeDist <= DKN_KATANA_RANGE) {
         const stage = DKN_KATANA_STAGES[Math.min(this._enrageStageIdx, DKN_KATANA_STAGES.length - 1)];
-        const isFirstHit = this._enrageStageIdx === 0;
         this._katanaCD = stage.cd;
         this._swingT = DKN_KATANA_SWING_DUR;
         other.takeDamage(stage.dmg);
         SFX.playPitched('darkNinjaStab', -1.5, 1.5, 1.0);
         this.fury = Math.min(DKN_FURY_MAX, this.fury + 0.25);
-        // Primeiro golpe de katana também stunna — mas silenciosamente, sem
-        // o bloco azul de overlay (ver isSilentlyStunned em utils.js).
-        if (isFirstHit && other.alive) {
-          other._silentStunUntil = Date.now() + DKN_KATANA_SILENT_STUN_DUR * 1000;
-          other.freezeTimer = Math.max(other.freezeTimer || 0, DKN_KATANA_SILENT_STUN_DUR);
+        // Todo golpe do Enraged stunna agora (não só o primeiro) — silenciosamente,
+        // sem o bloco azul de overlay — e empurra o alvo 5px pra trás. A duração
+        // do stun acompanha o tempo restante de Enraged (por isso varia hit a
+        // hit) e o _startDashOut libera o alvo explicitamente na saída, então
+        // o stun nunca sobrevive além do dash pra longe.
+        if (other.alive) {
+          knockbackChar(this, other, DKN_KATANA_PUSHBACK);
+          const stunDur = Math.max(0.35, this._enragedT + DKN_KATANA_STUN_BUFFER);
+          other._silentStunUntil = Date.now() + stunDur * 1000;
+          other.freezeTimer = Math.max(other.freezeTimer || 0, stunDur);
         }
         if (!other.alive) this._triggerKillAnim(other);
         if (this._enrageStageIdx < DKN_KATANA_STAGES.length - 1) this._enrageStageIdx++;
@@ -397,6 +414,9 @@ class DarkNinjaCharacter extends Character {
         x: clamp(this.x + nx * DKN_DASH_OUT_DIST, this.sz / 2, AW - this.sz / 2),
         y: clamp(this.y + ny * DKN_DASH_OUT_DIST, this.sz / 2, AH - this.sz / 2),
       };
+      // O stun do Enraged só acaba quando ele dá o dash pra longe — libera aqui.
+      other.freezeTimer = 0;
+      other._silentStunUntil = 0;
     } else {
       this._dashTo = { x: this.x, y: this.y };
     }
