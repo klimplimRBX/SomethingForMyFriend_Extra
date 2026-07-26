@@ -30,6 +30,7 @@ const SFX = {
         sentrySlowFire:  'https://raw.githubusercontent.com/klimplimRBX/SomethingForMyFriend/main/SentrySlowFire.mp3',
         sentryStop:      'https://raw.githubusercontent.com/klimplimRBX/SomethingForMyFriend/main/SentryStop.mp3',
         sentryRev:       'https://raw.githubusercontent.com/klimplimRBX/SomethingForMyFriend/main/SentryRev.mp3',
+        engineerShoot:   'https://raw.githubusercontent.com/klimplimRBX/SomethingForMyFriend/main/EngiShoot.mp3',
       };
       await Promise.all(Object.entries(urls).map(async ([key, url]) => {
         const res = await fetch(url);

@@ -95,6 +95,10 @@ const ENGI_SLEDGE_IMG = new Image();
 ENGI_SLEDGE_IMG.crossOrigin = 'anonymous';
 ENGI_SLEDGE_IMG.src = 'https://raw.githubusercontent.com/klimplimRBX/SomethingForMyFriend/main/sledge.png';
 
+const ENGI_WEAPON_IMG = new Image();
+ENGI_WEAPON_IMG.crossOrigin = 'anonymous';
+ENGI_WEAPON_IMG.src = 'https://raw.githubusercontent.com/klimplimRBX/SomethingForMyFriend/main/EngiWeapon.png';
+
 const SENTRY_IMG = new Image();
 SENTRY_IMG.crossOrigin = 'anonymous';
 SENTRY_IMG.src = 'https://raw.githubusercontent.com/klimplimRBX/SomethingForMyFriend/main/sentry.png';
