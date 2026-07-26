@@ -17,11 +17,11 @@ const DKN_FURY_PER_MISS      = 2;
 const DKN_SHURIKEN_NO_REPEAT = 2;
 
 const DKN_KATANA_STAGES = [
-  { dmg: 100, cd: 1.0  },
-  { dmg: 75,  cd: 0.75 },
-  { dmg: 50,  cd: 0.5  },
-  { dmg: 25,  cd: 0.25 },
-  { dmg: 20,  cd: 0.2  },
+  { dmg: 125, cd: 1.0  },
+  { dmg: 100, cd: 0.75 },
+  { dmg: 80,  cd: 0.5  },
+  { dmg: 60,  cd: 0.25 },
+  { dmg: 40,  cd: 0.2  },
 ];
 const DKN_KATANA_RANGE       = ENGI_SLEDGE_RANGE + 15; // pendência: ajustar testando in-game
 
@@ -36,7 +36,7 @@ const DKN_THROW_POSE_DUR     = 0.5;
 const DKN_WIN_KATANAPOSE_DUR = 1.0;
 
 // ── ASSUNÇÕES (não estavam na spec — ajustar se precisar) ───────
-const DKN_SHURIKEN_SPD       = 700;    // velocidade do shuriken
+const DKN_SHURIKEN_SPD       = 1000;   // velocidade do shuriken (aumentada — mais rápida, mas ainda abaixo da bala do Engineer)
 const DKN_DASH_IN_DUR        = 0.4;    // duração do dash de entrada
 const DKN_DASH_OUT_DUR       = 0.4;    // duração do dash de saída (sem imunidade — ver pendência)
 const DKN_DASH_OUT_DIST      = 220;    // quanto recua no dash de saída
@@ -47,6 +47,8 @@ const DKN_SWING_ARC_RADIUS   = 190;
 const DKN_MOVE_PARTICLE_RATE = 0.06;
 const DKN_MOVE_PARTICLE_LIFE = 0.35;
 const DKN_FURYBAR_H          = 14;
+const DKN_VISUAL_SCALE       = 1.4;    // personagem maior visualmente — NÃO mexe na hitbox (this.sz continua igual)
+const DKN_KATANA_W_SIZE      = 56;     // altura de desenho da espada segurada
 
 // ── PROJÉTIL DE SHURIKEN (trail preta, gira sozinho) ────────────
 class ShurikenProj extends Proj {
@@ -125,6 +127,7 @@ class DarkNinjaCharacter extends Character {
     this._immuneT   = Math.max(0, this._immuneT - dt);
     this._immune    = this._immuneT > 0;
     this._shakeT    = Math.max(0, this._shakeT - dt);
+    this._swingT    = Math.max(0, this._swingT - dt); // decai sempre, não só durante o Enraged
 
     this._sweepPendingShurikens();
     this._updateMoveParticles(dt);
@@ -277,7 +280,6 @@ class DarkNinjaCharacter extends Character {
   _updateEnraged(dt, other) {
     this._enragedT -= dt;
     this._katanaCD = Math.max(0, this._katanaCD - dt);
-    this._swingT = Math.max(0, this._swingT - dt);
 
     if (other && other.alive) {
       const dx = other.x - this.x, dy = other.y - this.y;
@@ -440,8 +442,32 @@ class DarkNinjaCharacter extends Character {
     if (!this.alive) { this._drawLabels(c); return; }
     this._drawMoveParticles(c);
 
-    const sz = this.sz;
+    const sz = this.sz * DKN_VISUAL_SCALE; // só visual — hitbox (this.sz) não muda
     const facingLeft = this._lastOther && this._lastOther.alive && this._lastOther.x < this.x;
+
+    // Espada física: aparece durante o Enraged, seguindo o mesmo braço/ângulo
+    // do corte (igual o Engineer segura e balança a sledge em char_engineer.js)
+    if (this.state === 'enraged') {
+      const half = DKN_SWING_ARC_SPAN / 2;
+      const swingProg = this._swingT > 0 ? clamp(1 - (this._swingT / DKN_KATANA_SWING_DUR), 0, 1) : 0;
+      const swingOffset = this._swingT > 0 ? lerp(-half, half, swingProg) : 0;
+      const gH = DKN_KATANA_W_SIZE;
+      const katanaImg = DARKNINJA_IMGS.Katana;
+      const gW = imgOk(katanaImg) ? gH * (katanaImg.naturalWidth / katanaImg.naturalHeight) : gH;
+      const edgeDist = sz / 2 + 4;
+      const gx = this.x + Math.cos(this._aimAngle) * edgeDist;
+      const gy = this.y + Math.sin(this._aimAngle) * edgeDist;
+      c.save();
+      c.translate(gx, gy);
+      c.rotate(this._aimAngle + swingOffset);
+      if (imgOk(katanaImg)) {
+        c.drawImage(katanaImg, 0, -gH / 2, gW, gH);
+      } else {
+        c.fillStyle = '#ccc'; c.fillRect(0, -4, gW || 40, 8);
+      }
+      c.restore();
+    }
+
     const img = DARKNINJA_IMGS[this._currentImgKey()];
     c.save();
     c.translate(this.x, this.y);
@@ -505,7 +531,7 @@ class DarkNinjaCharacter extends Character {
     const cw = canvas.width / DPR, ch = canvas.height / DPR;
     const sx = cw / 2 + (this.x - camRef.x) * camRef.zoom;
     const sy = ch / 2 + (this.y - camRef.y) * camRef.zoom;
-    const half = (this.sz / 2) * camRef.zoom;
+    const half = (this.sz * DKN_VISUAL_SCALE / 2) * camRef.zoom;
     this._drawHPScreen(c, sx, sy - half);
     this._drawFuryBar(c, sx, sy - half);
   }
