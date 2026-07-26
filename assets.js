@@ -103,6 +103,24 @@ const SENTRY_IMG = new Image();
 SENTRY_IMG.crossOrigin = 'anonymous';
 SENTRY_IMG.src = 'https://raw.githubusercontent.com/klimplimRBX/SomethingForMyFriend/main/sentry.png';
 
+// Dark Ninja images
+const DARKNINJA_IMGS = {};
+['Dash','Katana','KatanaOut','KatanaPose','TakeOutShuriken','ThrowShuriken','WinStartPose'].forEach(key => {
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.src = `https://raw.githubusercontent.com/klimplimRBX/SomethingForMyFriend/main/DarkNinja/DarkNinja${key}.png`;
+  DARKNINJA_IMGS[key] = img;
+});
+
+const SHURIKEN_IMGS = [];
+for (let i = 0; i <= 5; i++) {
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.src = `https://raw.githubusercontent.com/klimplimRBX/SomethingForMyFriend/main/DarkNinja/Shuriken${i}.png`;
+  SHURIKEN_IMGS.push(img);
+}
+// pendência: confirmar se são realmente 6 (0-5) e todos distintos no repo
+
 // Dog images
 const DOG_IMGS = {};
 ['MainDog','Dog1','Dog2','Dog3','Dog4','Dog5','Dog6'].forEach(key => {

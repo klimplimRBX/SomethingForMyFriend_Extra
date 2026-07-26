@@ -15,6 +15,7 @@ const CHAR_TYPES = [
   { name:'Jevil',           color:'#1a0030', cls:FinaleCharacter },
   { name:'Cachorro Caramelo', color:'#C68642', cls:DogCharacter },
   { name:'Engineer', color:'#D4A017', cls:EngineerCharacter },
+  { name:'Dark Ninja', color:'#111111', cls:DarkNinjaCharacter },
   { name:'+ Personalizado', color:'#8E44AD', cls:null, isCustomSlot:true },
 ];
 

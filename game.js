@@ -219,7 +219,8 @@ const G = {
       }
     }
 
-    cam._shakeAmt = (dog && dog._phase === 2 && dog.alive) ? 2 : 0;
+    const ninjaShaking = this.chars.some(c => c instanceof DarkNinjaCharacter && c.alive && c._shakeT > 0);
+    cam._shakeAmt = (dog && dog._phase === 2 && dog.alive) ? 2 : (ninjaShaking ? 3 : 0);
     // Câmera segue o player diretamente (ignora o update padrão de dois personagens)
     const playerChar = this.chars.find(c => c instanceof PlayerCharacter);
     cam.update(dt, this.chars);
