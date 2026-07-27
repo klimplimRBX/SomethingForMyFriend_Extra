@@ -171,11 +171,6 @@ class BaianoCharacter extends Character {
         const _wb=getWhite(BAIANO_IMG);
         if (_wb) c.drawImage(_wb,-w/2,-h/2,w,h);
       }
-      if (this.freezeTimer>0 && !isSilentlyStunned(this)) {
-        c.globalAlpha=0.40;
-        c.fillStyle='#A0DFFF';
-        c.fillRect(-w/2,-h/2,w,h);
-      }
       c.restore();
     }
     this._drawLabels(c);

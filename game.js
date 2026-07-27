@@ -48,6 +48,40 @@ function _drawPoisonTint(ctx, c) {
   ctx.drawImage(_poisonTintCanvas, c.x - half, c.y - half);
 }
 
+// ── TINT DE STUN (genérico) ────────────────────────────────────────
+// Mesma técnica do tint de veneno acima: em vez do cubo azul sólido por
+// cima (que também pintava as partes transparentes do sprite), redesenha
+// o personagem num canvas auxiliar e usa 'source-atop' pra tingir de azul
+// só os pixels que já são opacos ali. Dark Ninja usa um azul mais escuro.
+const _STUN_TINT_SZ = 240;
+const _stunTintCanvas = document.createElement('canvas');
+_stunTintCanvas.width = _STUN_TINT_SZ;
+_stunTintCanvas.height = _STUN_TINT_SZ;
+const _stunTintCtx = _stunTintCanvas.getContext('2d');
+
+function _drawStunTint(ctx, c) {
+  const half = _STUN_TINT_SZ / 2;
+  _stunTintCtx.clearRect(0, 0, _STUN_TINT_SZ, _STUN_TINT_SZ);
+
+  const _wasAlive = c.alive;
+  c.alive = true;
+  c._maskMode = true;
+  _stunTintCtx.save();
+  _stunTintCtx.translate(half - c.x, half - c.y);
+  c.draw(_stunTintCtx);
+  _stunTintCtx.restore();
+  c._maskMode = false;
+  c.alive = _wasAlive;
+
+  _stunTintCtx.globalCompositeOperation = 'source-atop';
+  _stunTintCtx.globalAlpha = 0.55;
+  _stunTintCtx.fillStyle = (c instanceof DarkNinjaCharacter) ? '#1D4E80' : '#3FA9F5';
+  _stunTintCtx.fillRect(0, 0, _STUN_TINT_SZ, _STUN_TINT_SZ);
+  _stunTintCtx.globalCompositeOperation = 'source-over';
+
+  ctx.drawImage(_stunTintCanvas, c.x - half, c.y - half);
+}
+
 const G = {
   state:'menu', chars:[], projs:[], deathTimer:0, winnerText:'', btns:{},
   _finaleActive:false, _finaleGuardT:0,
@@ -339,6 +373,9 @@ const G = {
     for (const c of this.chars) {
       if (c._poisonTintT > 0) _drawPoisonTint(ctx, c);
     }
+    for (const c of this.chars) {
+      if (c.freezeTimer > 0 && !isSilentlyStunned(c)) _drawStunTint(ctx, c);
+    }
 
     // ── ENGINEER PATCH: desenha todas as sentries vivas e partículas de explosão ──
     for (const _drawEngi of this.chars) {
@@ -492,6 +529,8 @@ const G = {
       c.drawImage(ENGI_IMG,sqX,sqY,sq,sq);
     } else if (type.cls===DarkNinjaCharacter && imgOk(DARKNINJA_IMGS.WinStartPose)) {
       c.drawImage(DARKNINJA_IMGS.WinStartPose,sqX,sqY,sq,sq);
+    } else if (type.cls===ToxicDarterCharacter && imgOk(TOXICDARTER_IMGS.Front)) {
+      c.drawImage(TOXICDARTER_IMGS.Front,sqX,sqY,sq,sq);
     } else if (isJevil) {
       // Desenha o losango do Jevil no card de seleção
       const cx2=sqX+sq/2, cy2=sqY+sq/2, r=sq*0.46;

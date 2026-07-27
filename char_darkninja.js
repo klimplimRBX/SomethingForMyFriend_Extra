@@ -687,10 +687,6 @@ class DarkNinjaCharacter extends Character {
     }
     c.restore();
 
-    if (this.freezeTimer > 0) {
-      c.save(); c.globalAlpha = 0.45; c.fillStyle = '#A0DFFF';
-      c.fillRect(this.x - sz / 2, this.y - sz / 2, sz, sz); c.restore();
-    }
     if (this._swingT > 0) this._drawKatanaSwing(c);
     this._drawFuryParticles(c);
     if (this._immuneLabel) this._drawImmuneLabel(c);

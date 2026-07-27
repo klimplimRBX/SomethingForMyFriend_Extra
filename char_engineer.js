@@ -589,11 +589,6 @@ class EngineerCharacter extends Character {
         c.stroke();
         c.restore();
       }
-      if (this.freezeTimer > 0 && !isSilentlyStunned(this)) {
-        c.save(); c.globalAlpha = 0.45; c.fillStyle = '#A0DFFF';
-        c.fillRect(this.x - sz/2, this.y - sz/2, sz, sz);
-        c.restore();
-      }
     }
     this._drawLabels(c);
   }

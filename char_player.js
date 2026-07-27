@@ -393,10 +393,6 @@ class PlayerCharacter extends Character {
     c.fillStyle = this.hitFlash > 0 ? _bc : 'rgba(255,255,255,0.7)';
     c.beginPath(); c.arc(0, 0, sz * 0.22, 0, Math.PI*2); c.fill();
     c.restore();
-    if (this.freezeTimer > 0 && !isSilentlyStunned(this)) {
-      c.save(); c.globalAlpha = 0.4; c.fillStyle = '#A0DFFF';
-      c.beginPath(); c.arc(this.x, this.y, sz/2, 0, Math.PI*2); c.fill(); c.restore();
-    }
     this._drawLabels(c);
   }
 
@@ -641,12 +637,6 @@ class PlayerCustomCharacter extends PlayerCharacter {
       c.beginPath(); c.arc(0,0,sz*0.22,0,Math.PI*2); c.fill();
     }
     c.restore();
-    if (this.freezeTimer>0 && !isSilentlyStunned(this)) {
-      const _fRx = (cfg && cfg.imgRatioX||100)/100, _fRy = (cfg && cfg.imgRatioY||100)/100;
-      c.save(); c.globalAlpha=0.4; c.fillStyle='#A0DFFF';
-      c.fillRect(this.x-sz/2*_fRx, this.y-sz/2*_fRy, sz*_fRx, sz*_fRy);
-      c.restore();
-    }
     this._drawLabels(c);
   }
 }

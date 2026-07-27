@@ -50,19 +50,25 @@ const TXD_POOL_MAX             = 4;    // pedido do usuário: no máximo 4 pisci
 // ── ASSUNÇÕES (não estavam na spec) ────────────────────────────────
 const TXD_VISUAL_SZ = 1.0; // sem escala visual especial, ao contrário da Dark Ninja
 
-// Anima cada piscina: gira lentamente e faz partículas nascerem/sumirem com o tempo
+// Anima cada piscina: gira lentamente em múltiplas camadas (cada uma com
+// velocidade/sentido próprio, pra dar aquele efeito "gasoso" vivo) e faz
+// partículas nascerem, derivarem pra fora e sumirem com o tempo.
 // (chamado 1x por frame em _tickPools — mantém a física e o visual sincronizados)
 function _txdAnimatePool(pool, dt) {
-  pool.rot = (pool.rot || 0) + dt * 0.5; // giro lento e contínuo
+  pool.rot  = (pool.rot  || 0) + dt * 0.5;   // usado pela órbita das partículas
+  pool.rotA = (pool.rotA || 0) + dt * 0.9;   // camada externa
+  pool.rotB = (pool.rotB || 0) - dt * 1.3;   // camada do meio — sentido oposto
+  pool.rotC = (pool.rotC || 0) + dt * 1.8;   // camada interna — mais rápida
   pool.bubbleT = (pool.bubbleT || 0) - dt;
   if (pool.bubbleT <= 0) {
-    pool.bubbleT = 0.15 + Math.random() * 0.2;
+    pool.bubbleT = 0.1 + Math.random() * 0.15;
     pool.bubbles.push({
       ang: Math.random() * Math.PI * 2,
-      dist: 0.15 + Math.random() * 0.6,
-      size: 0.05 + Math.random() * 0.08,
+      dist: 0.1 + Math.random() * 0.55,
+      rise: 0.2 + Math.random() * 0.4, // deriva pra fora enquanto a partícula envelhece
+      size: 0.045 + Math.random() * 0.09,
       age: 0,
-      life: 0.7 + Math.random() * 0.8,
+      life: 0.6 + Math.random() * 0.9,
     });
   }
   for (let i = pool.bubbles.length - 1; i >= 0; i--) {
@@ -70,6 +76,28 @@ function _txdAnimatePool(pool, dt) {
     b.age += dt;
     if (b.age >= b.life) pool.bubbles.splice(i, 1);
   }
+}
+
+// Desenha um "blob" orgânico (círculo com o raio perturbado por um seno) e já
+// deixa o caminho pronto pra fill() — usado pelas camadas rotativas da piscina.
+function _txdBlobPath(c, cx, cy, r, amp, freq, phase) {
+  const N = 10;
+  const pts = [];
+  for (let i = 0; i < N; i++) {
+    const ang = (i / N) * Math.PI * 2;
+    const rr = r * (1 + amp * Math.sin(ang * freq + phase));
+    pts.push({ x: cx + Math.cos(ang) * rr, y: cy + Math.sin(ang) * rr });
+  }
+  c.beginPath();
+  let p0 = pts[N - 1], p1 = pts[0];
+  let mid = { x: (p0.x + p1.x) / 2, y: (p0.y + p1.y) / 2 };
+  c.moveTo(mid.x, mid.y);
+  for (let i = 0; i < N; i++) {
+    p0 = pts[i]; p1 = pts[(i + 1) % N];
+    mid = { x: (p0.x + p1.x) / 2, y: (p0.y + p1.y) / 2 };
+    c.quadraticCurveTo(p0.x, p0.y, mid.x, mid.y);
+  }
+  c.closePath();
 }
 
 // ── PROJÉTIL: DARDO DE VENENO ─────────────────────────────────────
@@ -196,12 +224,13 @@ class ToxicDarterCharacter extends Character {
     this._readyT      = Math.max(0, this._readyT - dt);
     this._startT       = Math.max(0, this._startT - dt);
 
-    this._move(dt, other);
     this._tickPoisonTick(dt, other);
     this._tickPools(dt, other);
     this._tickLabel(dt);
 
-    if (this.freezeTimer > 0) return;
+    if (this.freezeTimer > 0) return; // congelado — não se move nem ataca
+
+    this._move(dt, other);
 
     // Tiro pendente do super dardo (agendado quando a XP encheu)
     if (this._pendingSuperShot && other && other.alive) {
@@ -253,7 +282,12 @@ class ToxicDarterCharacter extends Character {
       if (moved && this._poolSpawnT <= 0) {
         this._poolSpawnT = TXD_POOL_SPAWN_INTERVAL;
         if (this._pools.length >= TXD_POOL_MAX) this._pools.shift(); // remove a mais antiga
-        this._pools.push({ x: other.x, y: other.y, life: TXD_POOL_LIFE, rot: Math.random() * Math.PI * 2, bubbleT: 0, bubbles: [] });
+        this._pools.push({
+          x: other.x, y: other.y, life: TXD_POOL_LIFE, rot: Math.random() * Math.PI * 2,
+          rotA: 0, rotB: 0, rotC: 0,
+          seedA: Math.random() * Math.PI * 2, seedB: Math.random() * Math.PI * 2, seedC: Math.random() * Math.PI * 2,
+          bubbleT: 0, bubbles: [],
+        });
       }
     }
     for (let i = this._pools.length - 1; i >= 0; i--) {
@@ -326,10 +360,6 @@ class ToxicDarterCharacter extends Character {
     }
     c.restore();
 
-    if (this.freezeTimer > 0) {
-      c.save(); c.globalAlpha = 0.45; c.fillStyle = '#A0DFFF';
-      c.fillRect(this.x - sz / 2, this.y - sz / 2, sz, sz); c.restore();
-    }
     this._drawLabels(c);
   }
 
@@ -339,34 +369,57 @@ class ToxicDarterCharacter extends Character {
       const r = TXD_POOL_RADIUS;
       c.save();
 
-      // Brilho externo suave
-      c.globalAlpha = 0.55 * a;
-      const glow = c.createRadialGradient(pool.x, pool.y, r * 0.2, pool.x, pool.y, r * 1.4);
-      glow.addColorStop(0, 'rgba(70,230,130,0.55)');
-      glow.addColorStop(1, 'rgba(70,230,130,0)');
+      // Brilho externo suave — vaza pro chão ao redor da piscina
+      c.globalAlpha = 0.5 * a;
+      const glow = c.createRadialGradient(pool.x, pool.y, r * 0.3, pool.x, pool.y, r * 1.7);
+      glow.addColorStop(0, 'rgba(120,255,150,0.5)');
+      glow.addColorStop(1, 'rgba(120,255,150,0)');
       c.fillStyle = glow;
-      c.beginPath(); c.arc(pool.x, pool.y, r * 1.4, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.arc(pool.x, pool.y, r * 1.7, 0, Math.PI * 2); c.fill();
 
-      // Corpo da piscina (gradiente escuro nas bordas, claro no centro)
-      c.globalAlpha = 0.9 * a;
-      const body = c.createRadialGradient(pool.x, pool.y, 2, pool.x, pool.y, r);
-      body.addColorStop(0,    '#6BEF95');
-      body.addColorStop(0.55, '#2E9E52');
-      body.addColorStop(1,    '#0B4A20');
-      c.fillStyle = body;
-      c.beginPath(); c.arc(pool.x, pool.y, r, 0, Math.PI * 2); c.fill();
-      c.strokeStyle = 'rgba(6,50,18,0.7)'; c.lineWidth = 2; c.stroke();
+      // ── Camadas orgânicas rotativas (dão o efeito "gasoso" vivo, tipo o
+      // veneno da Najia no Brawl Stars) — cada uma gira num sentido/velocidade
+      // diferente, então elas nunca ficam alinhadas.
+      c.shadowBlur = 10;
 
-      // Partículas girando, nascendo e sumindo aos poucos
+      c.globalAlpha = 0.38 * a;
+      c.shadowColor = '#0B4A20';
+      c.fillStyle   = '#123F1C';
+      _txdBlobPath(c, pool.x, pool.y, r * 1.12, 0.16, 3, pool.seedA + pool.rotA);
+      c.fill();
+
+      c.globalAlpha = 0.5 * a;
+      c.shadowColor = '#2E9E52';
+      c.fillStyle   = '#2E9E52';
+      _txdBlobPath(c, pool.x, pool.y, r * 0.85, 0.2, 4, pool.seedB + pool.rotB);
+      c.fill();
+
+      c.globalAlpha = 0.6 * a;
+      c.shadowColor = '#8CFFB0';
+      c.fillStyle   = '#7DEFA0';
+      _txdBlobPath(c, pool.x, pool.y, r * 0.55, 0.22, 5, pool.seedC + pool.rotC);
+      c.fill();
+
+      c.shadowBlur = 0;
+
+      // Núcleo brilhante e pulsante no centro
+      c.globalAlpha = 0.55 * a * (0.75 + 0.25 * Math.sin(pool.rotC * 2.5));
+      const core = c.createRadialGradient(pool.x, pool.y, 0, pool.x, pool.y, r * 0.4);
+      core.addColorStop(0, 'rgba(224,255,214,0.95)');
+      core.addColorStop(1, 'rgba(224,255,214,0)');
+      c.fillStyle = core;
+      c.beginPath(); c.arc(pool.x, pool.y, r * 0.4, 0, Math.PI * 2); c.fill();
+
+      // Partículas: nascem, derivam pra fora orbitando, e somem aos poucos
       for (const b of pool.bubbles) {
         const life = clamp(b.age / b.life, 0, 1);
-        // envelope: some rápido, segura, some rápido de novo
         const env = life < 0.2 ? life / 0.2 : (life > 0.75 ? (1 - life) / 0.25 : 1);
         const ang = b.ang + pool.rot;
-        const bx = pool.x + Math.cos(ang) * b.dist * r;
-        const by = pool.y + Math.sin(ang) * b.dist * r;
-        c.globalAlpha = 0.75 * a * env;
-        c.fillStyle = '#C7FBD6';
+        const dist = Math.min(b.dist + b.rise * life, 1.15);
+        const bx = pool.x + Math.cos(ang) * dist * r;
+        const by = pool.y + Math.sin(ang) * dist * r;
+        c.globalAlpha = 0.8 * a * env;
+        c.fillStyle = '#D7FFE0';
         c.beginPath(); c.arc(bx, by, b.size * r, 0, Math.PI * 2); c.fill();
       }
 

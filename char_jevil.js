@@ -95,11 +95,6 @@ class FinaleCharacter extends Character {
       c.moveTo(0,-sz/2); c.lineTo(sz/2,0); c.lineTo(0,sz/2); c.lineTo(-sz/2,0);
       c.closePath(); c.fill(); c.restore();
     }
-    // Freeze
-    if (this.freezeTimer>0 && !isSilentlyStunned(this)) {
-      c.save(); c.globalAlpha=0.4; c.fillStyle='#A0DFFF';
-      c.fillRect(this.x-sz/2,this.y-sz/2,sz,sz); c.restore();
-    }
     this._drawLabels(c);
   }
 
