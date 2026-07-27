@@ -121,6 +121,18 @@ for (let i = 0; i <= 5; i++) {
 }
 // pendência: confirmar se são realmente 6 (0-5) e todos distintos no repo
 
+// Toxic Darter images
+const TOXICDARTER_IMGS = {};
+['Front','Left','Right','Ready'].forEach(key => {
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.src = `https://raw.githubusercontent.com/klimplimRBX/SomethingForMyFriend/main/ToxicDarter/ToxicDarter${key}.png`;
+  TOXICDARTER_IMGS[key] = img;
+});
+const TOXICDART_PROJ_IMG = new Image();
+TOXICDART_PROJ_IMG.crossOrigin = 'anonymous';
+TOXICDART_PROJ_IMG.src = 'https://raw.githubusercontent.com/klimplimRBX/SomethingForMyFriend/main/ToxicDarter/ToxicDartProjectile.png';
+
 // Dog images
 const DOG_IMGS = {};
 ['MainDog','Dog1','Dog2','Dog3','Dog4','Dog5','Dog6'].forEach(key => {

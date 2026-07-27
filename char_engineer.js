@@ -383,7 +383,7 @@ class EngineerCharacter extends Character {
       this._weaponAngle = this._aimAngle + this._wobbleOffset + tremble;
 
       if (this._bulletCD <= 0) {
-        this._bulletCD = this.bulletCooldown;
+        this._bulletCD = this.bulletCooldown * (this.cdMult||1);
         this._wobbleOffset = 0; // trava exatamente no alvo no instante do disparo
         this._weaponAngle = this._aimAngle;
         const gH = ENGI_WEAPON_SIZE;
@@ -398,7 +398,7 @@ class EngineerCharacter extends Character {
       }
     } else {
       if (this._sledgeCD <= 0 && dist <= ENGI_SLEDGE_RANGE) {
-        this._sledgeCD = this.sledgeCooldown;
+        this._sledgeCD = this.sledgeCooldown * (this.cdMult||1);
         this._swingT = ENGI_SWING_DUR;
         this._sledgeVisT = ENGI_SLEDGE_VIS_MIN;
         other.takeDamage(this.sledgeDmg);

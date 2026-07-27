@@ -32,6 +32,8 @@ const SFX = {
         sentryRev:       'https://raw.githubusercontent.com/klimplimRBX/SomethingForMyFriend/main/SentryRev.mp3',
         engineerShoot:   'https://raw.githubusercontent.com/klimplimRBX/SomethingForMyFriend/main/EngiShoot.mp3',
         darkNinjaStab:   'https://raw.githubusercontent.com/klimplimRBX/SomethingForMyFriend/main/DarkNinja/DarkNinjaStab.mp3',
+        toxicDartAttack: 'https://raw.githubusercontent.com/klimplimRBX/SomethingForMyFriend/main/ToxicDarter/ToxicDartAttack.mp3',
+        poisonDecay:     'https://raw.githubusercontent.com/klimplimRBX/SomethingForMyFriend/main/ToxicDarter/PoisonDecay.mp3',
       };
       await Promise.all(Object.entries(urls).map(async ([key, url]) => {
         const res = await fetch(url);

@@ -221,7 +221,7 @@ class PlayerCharacter extends Character {
         this._shotTimer = this._shotDly;
         this._shotsLeft -= 1; ri._burstLeft--;
         if (this._shotsLeft <= 0) {
-          this._reloadTimer = this._reload; this._reloadSoundPlayed = false; ri._burstLeft = 0;
+          this._reloadTimer = this._reload * (this.cdMult||1); this._reloadSoundPlayed = false; ri._burstLeft = 0;
         }
       }
       return;
@@ -336,7 +336,7 @@ class PlayerCharacter extends Character {
       this._shotsLeft -= 1;
       if (playerInput._burstLeft > 0) playerInput._burstLeft--;
       if (this._shotsLeft <= 0) {
-        this._reloadTimer = this._reload;
+        this._reloadTimer = this._reload * (this.cdMult||1);
         this._reloadSoundPlayed = false;
         playerInput._burstLeft = 0;
       }
@@ -585,7 +585,7 @@ class PlayerCustomCharacter extends PlayerCharacter {
       this._shotsLeft -= 1;
       if (playerInput._burstLeft > 0) playerInput._burstLeft--;
       if (this._shotsLeft <= 0) {
-        this._reloadTimer = this._reload;
+        this._reloadTimer = this._reload * (this.cdMult||1);
         this._reloadSoundPlayed = false;
         playerInput._burstLeft = 0;
       }

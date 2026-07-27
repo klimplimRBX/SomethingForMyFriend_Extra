@@ -17,6 +17,8 @@ class Character {
     this.healStack=0; this.healWin=0; this.healLabel=null;
     this.burstQ=[]; this.burstT=0;
     this._collideCD=0;
+    // ── Debuff genérico (usado pelo Toxic Darter, reutilizável por qualquer efeito futuro) ──
+    this.dmgMult=1; this.cdMult=1; this.speedMult=1; this.spreadAddDeg=0;
   }
 
   update(dt, other, projs) {

@@ -75,16 +75,39 @@ const G = {
       if (c1 === _engi) _target2 = _nearestSentry(_engiAliveSentries, c2.x, c2.y);
       else if (c2 === _engi) _target1 = _nearestSentry(_engiAliveSentries, c1.x, c1.y);
     }
+    // ── DEBUFF GENÉRICO (Toxic Darter): aplica speedMult/cdMult sem exigir que
+    // cada personagem exponha seus campos internos de movimento/cooldown.
+    // speedMult: reescala o deslocamento (delta de posição) do frame.
+    // cdMult: reescala o ganho de `charge` do frame (só afeta personagens que usam
+    // esse campo genérico; Engineer/DarkNinja/Player são tratados nos próprios arquivos).
+    const _preDebuff = (c) => ({ x:c.x, y:c.y, charge:c.charge||0 });
+    const _postDebuff = (c, pre) => {
+      if (c.speedMult !== 1) {
+        c.x = pre.x + (c.x - pre.x) * c.speedMult;
+        c.y = pre.y + (c.y - pre.y) * c.speedMult;
+      }
+      if (c.cdMult !== 1 && c.charge !== undefined) {
+        const gained = c.charge - pre.charge;
+        if (gained > 0) c.charge = Math.max(0, pre.charge + gained / c.cdMult);
+      }
+    };
     const _pc1 = this.projs.length;
+    const _pre1 = _preDebuff(c1);
     c1.update(dt,_target1,this.projs);
+    _postDebuff(c1, _pre1);
     const _pc2 = this.projs.length;
+    const _pre2 = _preDebuff(c2);
     c2.update(dt,_target2,this.projs);
+    _postDebuff(c2, _pre2);
     const _pc3 = this.projs.length;
     // Efeito "Confused" (do Sledge do Engineer): duplica o spread dos tiros
     // recém-criados por um dono confuso, aplicando um desvio aleatório no ângulo.
     const _applyConfJitter = (fromIdx, toIdx, owner) => {
-      if (!owner || !(owner.confusedTimer > 0)) return;
-      const deg = _confusedSpreadDeg(owner);
+      if (!owner) return;
+      const confDeg = owner.confusedTimer > 0 ? _confusedSpreadDeg(owner) : 0;
+      const poisonDeg = owner.spreadAddDeg || 0;
+      const deg = confDeg + poisonDeg;
+      if (deg <= 0) return;
       const rad = deg * Math.PI / 180;
       for (let i=fromIdx; i<toIdx; i++) {
         const p = this.projs[i];
@@ -179,16 +202,16 @@ const G = {
             p.alive = false;
           }
         } else if (p instanceof BaianoProj) {
-          target.takeDamage(40);
+          target.takeDamage(40 * (p.owner ? (p.owner.dmgMult||1) : 1));
           target.receiveZ(BAIANO_FREEZE_DUR);
           if (p.owner && p.owner.alive) p.owner.heal(10);
           p.alive = false;
         } else if (p instanceof LadraoProjeto) {
-          target.takeDamage(RF_PROJ_DMG);
+          target.takeDamage(RF_PROJ_DMG * (p.owner ? (p.owner.dmgMult||1) : 1));
           if (p.owner && p.owner.spawnMoney) p.owner.spawnMoney(p.x, p.y);
           p.alive = false;
         } else {
-          const dmg=p.dmg!==undefined?p.dmg:PROJ_DMG;
+          const dmg=(p.dmg!==undefined?p.dmg:PROJ_DMG) * (p.owner ? (p.owner.dmgMult||1) : 1);
           // ENGINEER PATCH: tiros das torretas do Engineer não aplicam o slow padrão.
           const noSlow = (typeof Sentry !== 'undefined') && (p.owner instanceof Sentry);
           target.takeDamage(dmg, noSlow);
@@ -268,7 +291,17 @@ const G = {
     ctx.fillRect(0,0,AW,AH);
     // (Sem borda colorida na fase 2 do Cachorro Caramelo)
     for (const p of this.projs) p.draw(ctx);
+    for (const c of this.chars) if (c._drawPoisonPools) c._drawPoisonPools(ctx);
     for (const c of this.chars) c.draw(ctx);
+    for (const c of this.chars) {
+      if (c._poisonTintT > 0) {
+        ctx.save();
+        ctx.globalAlpha = 0.5 * clamp(c._poisonTintT / 0.5, 0, 1);
+        ctx.fillStyle = '#0B6E1F';
+        ctx.fillRect(c.x - c.sz/2, c.y - c.sz/2, c.sz, c.sz);
+        ctx.restore();
+      }
+    }
 
     // ── ENGINEER PATCH: desenha todas as sentries vivas e partículas de explosão ──
     for (const _drawEngi of this.chars) {

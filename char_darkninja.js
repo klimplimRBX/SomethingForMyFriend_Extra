@@ -246,11 +246,11 @@ class DarkNinjaCharacter extends Character {
           if (this._burstCount >= DKN_SHURIKEN_BURST_N) {
             this._burstDone = true; // espera a pose do último arremesso terminar antes de recarregar
           } else {
-            this._shurikenShotCD = DKN_SHURIKEN_SHOT_CD;
+            this._shurikenShotCD = DKN_SHURIKEN_SHOT_CD * (this.cdMult||1);
           }
         }
         if (this._burstDone && this._throwPoseT <= 0) {
-          this._subState = 'wait_reload'; this._subT = DKN_SHURIKEN_RELOAD_CD;
+          this._subState = 'wait_reload'; this._subT = DKN_SHURIKEN_RELOAD_CD * (this.cdMult||1);
           this._burstCount = 0; this._burstDone = false;
         }
         break;
