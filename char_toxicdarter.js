@@ -5,12 +5,12 @@
 //             imgOk, getWhite, clamp, lerp, rrect, canvas, DPR, cam
 
 // ── CONSTANTS (da spec) ──────────────────────────────────────────
-const TXD_HP              = 987;
-const TXD_DART_DMG        = 65;  // BUFF: era 50 — dano direto baixo demais comparado ao resto do roster
-const TXD_POISON_DMG_TICK = 25;  // BUFF: era 20
+const TXD_HP              = 1080; // BUFF: era 987 — mais fôlego pro playstyle mais agressivo
+const TXD_DART_DMG        = 80;  // BUFF: era 65
+const TXD_POISON_DMG_TICK = 30;  // BUFF: era 25
 const TXD_POISON_TICKS    = 3;
 const TXD_POISON_TICK_RATE= 1.0; // 1 tick/s
-const TXD_CD               = 1.5; // BUFF: era 2.0 — cooldown alto demais pro dano que ele dava
+const TXD_CD               = 1.2; // BUFF: era 1.5
 const TXD_DART_SPD         = 900;
 const TXD_TINT_DUR         = 0.5;
 
@@ -33,36 +33,43 @@ const TXD_XP_LOST_ON_HIT  = 1;
 const TXD_XP_PER_POOL     = 5;
 
 // ── Super dardo (ao encher XP) ────────────────────────────────────
-const TXD_SUPER_DMG            = 90;  // BUFF: era 70
+const TXD_SUPER_DMG            = 110; // BUFF: era 90
 const TXD_SUPER_TICKS          = 3;
 const TXD_SUPER_TICK_RATE      = 0.5;
-const TXD_SUPER_DMG_TICK       = 50;  // BUFF: era 40
+const TXD_SUPER_DMG_TICK       = 60;  // BUFF: era 50
 const TXD_SUPER_SPD            = 1050;
 const TXD_DRIPPING_DUR         = 3.0;  // duração do status PoisonDripping
-const TXD_POOL_SPAWN_INTERVAL  = 0.5;  // pedido do usuário: era 0.6
+const TXD_POOL_SPAWN_INTERVAL  = 0.5;
 const TXD_POOL_LIFE            = 5.0;  // cada piscina dura 5s
-const TXD_POOL_RADIUS          = 46;   // pedido do usuário: piscina maior (era 34)
+const TXD_POOL_RADIUS          = 46;
 const TXD_POOL_SLOW            = 0.20; // -20% velocidade
-const TXD_POOL_DPS             = 25;   // BUFF: era 20 (acompanha o buff do veneno normal)
+const TXD_POOL_DPS             = 30;   // BUFF: era 25
 const TXD_POOL_SPREAD_ADD      = 5;
+const TXD_POOL_MAX             = 4;    // pedido do usuário: no máximo 4 piscinas vivas ao mesmo tempo
 
 // ── ASSUNÇÕES (não estavam na spec) ────────────────────────────────
 const TXD_VISUAL_SZ = 1.0; // sem escala visual especial, ao contrário da Dark Ninja
 
-// Bolhas decorativas fixas por piscina (calculadas 1x na criação, não a cada frame)
-function _txdGenPoolBubbles() {
-  const n = 4 + Math.floor(Math.random() * 3);
-  const out = [];
-  for (let i = 0; i < n; i++) {
-    const ang = Math.random() * Math.PI * 2;
-    const dist = 0.15 + Math.random() * 0.55;
-    out.push({
-      dx: Math.cos(ang) * dist, dy: Math.sin(ang) * dist,
-      size: 0.06 + Math.random() * 0.09,
-      alpha: 0.4 + Math.random() * 0.4,
+// Anima cada piscina: gira lentamente e faz partículas nascerem/sumirem com o tempo
+// (chamado 1x por frame em _tickPools — mantém a física e o visual sincronizados)
+function _txdAnimatePool(pool, dt) {
+  pool.rot = (pool.rot || 0) + dt * 0.5; // giro lento e contínuo
+  pool.bubbleT = (pool.bubbleT || 0) - dt;
+  if (pool.bubbleT <= 0) {
+    pool.bubbleT = 0.15 + Math.random() * 0.2;
+    pool.bubbles.push({
+      ang: Math.random() * Math.PI * 2,
+      dist: 0.15 + Math.random() * 0.6,
+      size: 0.05 + Math.random() * 0.08,
+      age: 0,
+      life: 0.7 + Math.random() * 0.8,
     });
   }
-  return out;
+  for (let i = pool.bubbles.length - 1; i >= 0; i--) {
+    const b = pool.bubbles[i];
+    b.age += dt;
+    if (b.age >= b.life) pool.bubbles.splice(i, 1);
+  }
 }
 
 // ── PROJÉTIL: DARDO DE VENENO ─────────────────────────────────────
@@ -245,12 +252,14 @@ class ToxicDarterCharacter extends Character {
       this._poolSpawnT -= dt;
       if (moved && this._poolSpawnT <= 0) {
         this._poolSpawnT = TXD_POOL_SPAWN_INTERVAL;
-        this._pools.push({ x: other.x, y: other.y, life: TXD_POOL_LIFE, bubbles: _txdGenPoolBubbles() });
+        if (this._pools.length >= TXD_POOL_MAX) this._pools.shift(); // remove a mais antiga
+        this._pools.push({ x: other.x, y: other.y, life: TXD_POOL_LIFE, rot: Math.random() * Math.PI * 2, bubbleT: 0, bubbles: [] });
       }
     }
     for (let i = this._pools.length - 1; i >= 0; i--) {
       this._pools[i].life -= dt;
-      if (this._pools[i].life <= 0) this._pools.splice(i, 1);
+      if (this._pools[i].life <= 0) { this._pools.splice(i, 1); continue; }
+      _txdAnimatePool(this._pools[i], dt);
     }
 
     // Colisão: o inimigo só recebe efeito de UMA piscina por vez, mesmo se estiver
@@ -348,27 +357,18 @@ class ToxicDarterCharacter extends Character {
       c.beginPath(); c.arc(pool.x, pool.y, r, 0, Math.PI * 2); c.fill();
       c.strokeStyle = 'rgba(6,50,18,0.7)'; c.lineWidth = 2; c.stroke();
 
-      // Bolhas internas (fixas por piscina, não recalculadas por frame)
+      // Partículas girando, nascendo e sumindo aos poucos
       for (const b of pool.bubbles) {
-        c.globalAlpha = 0.8 * a * b.alpha;
+        const life = clamp(b.age / b.life, 0, 1);
+        // envelope: some rápido, segura, some rápido de novo
+        const env = life < 0.2 ? life / 0.2 : (life > 0.75 ? (1 - life) / 0.25 : 1);
+        const ang = b.ang + pool.rot;
+        const bx = pool.x + Math.cos(ang) * b.dist * r;
+        const by = pool.y + Math.sin(ang) * b.dist * r;
+        c.globalAlpha = 0.75 * a * env;
         c.fillStyle = '#C7FBD6';
-        c.beginPath();
-        c.arc(pool.x + b.dx * r, pool.y + b.dy * r, b.size * r, 0, Math.PI * 2);
-        c.fill();
+        c.beginPath(); c.arc(bx, by, b.size * r, 0, Math.PI * 2); c.fill();
       }
-
-      // Símbolo brilhante central
-      c.globalAlpha = 0.95 * a;
-      c.save();
-      c.translate(pool.x, pool.y);
-      c.shadowColor = '#A6FFC2'; c.shadowBlur = 10;
-      c.strokeStyle = '#E4FFEC'; c.lineWidth = Math.max(1.5, r * 0.09);
-      c.lineCap = 'round';
-      const s = r * 0.42;
-      c.beginPath(); c.arc(0, -s * 0.55, s * 0.42, 0, Math.PI * 2); c.stroke();
-      c.beginPath(); c.moveTo(0, -s * 0.12); c.lineTo(0, s * 0.9); c.stroke();
-      c.beginPath(); c.moveTo(-s * 0.55, s * 0.25); c.lineTo(s * 0.55, s * 0.25); c.stroke();
-      c.restore();
 
       c.restore();
     }
