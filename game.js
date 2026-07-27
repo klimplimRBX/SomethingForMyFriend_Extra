@@ -10,6 +10,44 @@ function _nearestSentry(list, x, y) {
   return best;
 }
 
+// ── TINT DE VENENO (genérico) ──────────────────────────────────────
+// Em vez de pintar um quadrado sólido por cima do sprite (o que também
+// pintava as partes transparentes da imagem), redesenha o personagem
+// num canvas auxiliar transparente e usa 'source-atop' pra tingir só os
+// pixels que já são opacos ali — preserva a transparência e funciona pra
+// qualquer tamanho de sprite (inclusive os escalados, tipo o Dark Ninja).
+const _POISON_TINT_SZ = 240;
+const _poisonTintCanvas = document.createElement('canvas');
+_poisonTintCanvas.width = _POISON_TINT_SZ;
+_poisonTintCanvas.height = _POISON_TINT_SZ;
+const _poisonTintCtx = _poisonTintCanvas.getContext('2d');
+
+function _drawPoisonTint(ctx, c) {
+  const half = _POISON_TINT_SZ / 2;
+  _poisonTintCtx.clearRect(0, 0, _POISON_TINT_SZ, _POISON_TINT_SZ);
+
+  // Se o personagem já morreu envenenado, ainda assim capturamos a silhueta
+  // do sprite (draw() normalmente não desenha nada quando !alive) só pra
+  // gerar a máscara — nada de estado do jogo é alterado por isso.
+  const _wasAlive = c.alive;
+  c.alive = true;
+  c._maskMode = true;
+  _poisonTintCtx.save();
+  _poisonTintCtx.translate(half - c.x, half - c.y);
+  c.draw(_poisonTintCtx);
+  _poisonTintCtx.restore();
+  c._maskMode = false;
+  c.alive = _wasAlive;
+
+  _poisonTintCtx.globalCompositeOperation = 'source-atop';
+  _poisonTintCtx.globalAlpha = 0.5 * clamp(c._poisonTintT / TXD_TINT_DUR, 0, 1);
+  _poisonTintCtx.fillStyle = '#0B6E1F';
+  _poisonTintCtx.fillRect(0, 0, _POISON_TINT_SZ, _POISON_TINT_SZ);
+  _poisonTintCtx.globalCompositeOperation = 'source-over';
+
+  ctx.drawImage(_poisonTintCanvas, c.x - half, c.y - half);
+}
+
 const G = {
   state:'menu', chars:[], projs:[], deathTimer:0, winnerText:'', btns:{},
   _finaleActive:false, _finaleGuardT:0,
@@ -121,6 +159,11 @@ const G = {
     _applyConfJitter(_pc1,_pc2,c1);
     _applyConfJitter(_pc2,_pc3,c2);
     for (const _c of [c1,c2]) _c.confusedTimer = Math.max(0, (_c.confusedTimer||0) - dt);
+    // ── Decaimento do tint verde de veneno (genérico — funciona mesmo se o
+    // personagem morrer envenenado, e independe de qual char está poisonado) ──
+    for (const _c of [c1,c2]) {
+      if (_c._poisonTintT > 0) _c._poisonTintT = Math.max(0, _c._poisonTintT - dt);
+    }
     // Atualiza as sentries (entidades separadas, fora de this.chars) e as partículas de explosão.
     // Importante: re-checa `s.alive` aqui (não usa o array cacheado acima), porque o
     // update() de c1/c2 já pode ter matado alguma sentry nesse mesmo frame (ex: o
@@ -294,13 +337,7 @@ const G = {
     for (const c of this.chars) if (c._drawPoisonPools) c._drawPoisonPools(ctx);
     for (const c of this.chars) c.draw(ctx);
     for (const c of this.chars) {
-      if (c._poisonTintT > 0) {
-        ctx.save();
-        ctx.globalAlpha = 0.5 * clamp(c._poisonTintT / 0.5, 0, 1);
-        ctx.fillStyle = '#0B6E1F';
-        ctx.fillRect(c.x - c.sz/2, c.y - c.sz/2, c.sz, c.sz);
-        ctx.restore();
-      }
+      if (c._poisonTintT > 0) _drawPoisonTint(ctx, c);
     }
 
     // ── ENGINEER PATCH: desenha todas as sentries vivas e partículas de explosão ──

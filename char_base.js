@@ -159,6 +159,7 @@ class Character {
   }
 
   _drawLabels(c) {
+    if (this._maskMode) return; // usado pelo tint de veneno pra capturar só o sprite, sem labels
     if (this.dmgLabel) {
       const {val,x,y,fade}=this.dmgLabel;
       c.save(); c.globalAlpha=clamp(fade/0.9,0,1); c.textAlign='center';

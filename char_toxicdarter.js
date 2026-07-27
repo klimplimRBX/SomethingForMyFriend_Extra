@@ -6,11 +6,11 @@
 
 // ── CONSTANTS (da spec) ──────────────────────────────────────────
 const TXD_HP              = 987;
-const TXD_DART_DMG        = 50;
-const TXD_POISON_DMG_TICK = 20;
+const TXD_DART_DMG        = 65;  // BUFF: era 50 — dano direto baixo demais comparado ao resto do roster
+const TXD_POISON_DMG_TICK = 25;  // BUFF: era 20
 const TXD_POISON_TICKS    = 3;
 const TXD_POISON_TICK_RATE= 1.0; // 1 tick/s
-const TXD_CD               = 2.0;
+const TXD_CD               = 1.5; // BUFF: era 2.0 — cooldown alto demais pro dano que ele dava
 const TXD_DART_SPD         = 900;
 const TXD_TINT_DUR         = 0.5;
 
@@ -33,21 +33,37 @@ const TXD_XP_LOST_ON_HIT  = 1;
 const TXD_XP_PER_POOL     = 5;
 
 // ── Super dardo (ao encher XP) ────────────────────────────────────
-const TXD_SUPER_DMG            = 70;
+const TXD_SUPER_DMG            = 90;  // BUFF: era 70
 const TXD_SUPER_TICKS          = 3;
 const TXD_SUPER_TICK_RATE      = 0.5;
-const TXD_SUPER_DMG_TICK       = 40;
+const TXD_SUPER_DMG_TICK       = 50;  // BUFF: era 40
 const TXD_SUPER_SPD            = 1050;
 const TXD_DRIPPING_DUR         = 3.0;  // duração do status PoisonDripping
-const TXD_POOL_SPAWN_INTERVAL  = 0.6;  // spawna piscina a cada X s enquanto anda
+const TXD_POOL_SPAWN_INTERVAL  = 0.5;  // pedido do usuário: era 0.6
 const TXD_POOL_LIFE            = 5.0;  // cada piscina dura 5s
-const TXD_POOL_RADIUS          = 34;
+const TXD_POOL_RADIUS          = 46;   // pedido do usuário: piscina maior (era 34)
 const TXD_POOL_SLOW            = 0.20; // -20% velocidade
-const TXD_POOL_DPS             = 20;
+const TXD_POOL_DPS             = 25;   // BUFF: era 20 (acompanha o buff do veneno normal)
 const TXD_POOL_SPREAD_ADD      = 5;
 
 // ── ASSUNÇÕES (não estavam na spec) ────────────────────────────────
 const TXD_VISUAL_SZ = 1.0; // sem escala visual especial, ao contrário da Dark Ninja
+
+// Bolhas decorativas fixas por piscina (calculadas 1x na criação, não a cada frame)
+function _txdGenPoolBubbles() {
+  const n = 4 + Math.floor(Math.random() * 3);
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const ang = Math.random() * Math.PI * 2;
+    const dist = 0.15 + Math.random() * 0.55;
+    out.push({
+      dx: Math.cos(ang) * dist, dy: Math.sin(ang) * dist,
+      size: 0.06 + Math.random() * 0.09,
+      alpha: 0.4 + Math.random() * 0.4,
+    });
+  }
+  return out;
+}
 
 // ── PROJÉTIL: DARDO DE VENENO ─────────────────────────────────────
 class ToxicDartProj extends Proj {
@@ -229,7 +245,7 @@ class ToxicDarterCharacter extends Character {
       this._poolSpawnT -= dt;
       if (moved && this._poolSpawnT <= 0) {
         this._poolSpawnT = TXD_POOL_SPAWN_INTERVAL;
-        this._pools.push({ x: other.x, y: other.y, life: TXD_POOL_LIFE });
+        this._pools.push({ x: other.x, y: other.y, life: TXD_POOL_LIFE, bubbles: _txdGenPoolBubbles() });
       }
     }
     for (let i = this._pools.length - 1; i >= 0; i--) {
@@ -311,12 +327,49 @@ class ToxicDarterCharacter extends Character {
   _drawPoisonPools(c) {
     for (const pool of this._pools) {
       const a = clamp(pool.life / TXD_POOL_LIFE, 0, 1);
+      const r = TXD_POOL_RADIUS;
       c.save();
+
+      // Brilho externo suave
       c.globalAlpha = 0.55 * a;
-      const grad = c.createRadialGradient(pool.x, pool.y, 2, pool.x, pool.y, TXD_POOL_RADIUS);
-      grad.addColorStop(0, '#3E8E41'); grad.addColorStop(1, 'rgba(11,110,31,0)');
-      c.fillStyle = grad;
-      c.beginPath(); c.arc(pool.x, pool.y, TXD_POOL_RADIUS, 0, Math.PI * 2); c.fill();
+      const glow = c.createRadialGradient(pool.x, pool.y, r * 0.2, pool.x, pool.y, r * 1.4);
+      glow.addColorStop(0, 'rgba(70,230,130,0.55)');
+      glow.addColorStop(1, 'rgba(70,230,130,0)');
+      c.fillStyle = glow;
+      c.beginPath(); c.arc(pool.x, pool.y, r * 1.4, 0, Math.PI * 2); c.fill();
+
+      // Corpo da piscina (gradiente escuro nas bordas, claro no centro)
+      c.globalAlpha = 0.9 * a;
+      const body = c.createRadialGradient(pool.x, pool.y, 2, pool.x, pool.y, r);
+      body.addColorStop(0,    '#6BEF95');
+      body.addColorStop(0.55, '#2E9E52');
+      body.addColorStop(1,    '#0B4A20');
+      c.fillStyle = body;
+      c.beginPath(); c.arc(pool.x, pool.y, r, 0, Math.PI * 2); c.fill();
+      c.strokeStyle = 'rgba(6,50,18,0.7)'; c.lineWidth = 2; c.stroke();
+
+      // Bolhas internas (fixas por piscina, não recalculadas por frame)
+      for (const b of pool.bubbles) {
+        c.globalAlpha = 0.8 * a * b.alpha;
+        c.fillStyle = '#C7FBD6';
+        c.beginPath();
+        c.arc(pool.x + b.dx * r, pool.y + b.dy * r, b.size * r, 0, Math.PI * 2);
+        c.fill();
+      }
+
+      // Símbolo brilhante central
+      c.globalAlpha = 0.95 * a;
+      c.save();
+      c.translate(pool.x, pool.y);
+      c.shadowColor = '#A6FFC2'; c.shadowBlur = 10;
+      c.strokeStyle = '#E4FFEC'; c.lineWidth = Math.max(1.5, r * 0.09);
+      c.lineCap = 'round';
+      const s = r * 0.42;
+      c.beginPath(); c.arc(0, -s * 0.55, s * 0.42, 0, Math.PI * 2); c.stroke();
+      c.beginPath(); c.moveTo(0, -s * 0.12); c.lineTo(0, s * 0.9); c.stroke();
+      c.beginPath(); c.moveTo(-s * 0.55, s * 0.25); c.lineTo(s * 0.55, s * 0.25); c.stroke();
+      c.restore();
+
       c.restore();
     }
   }
